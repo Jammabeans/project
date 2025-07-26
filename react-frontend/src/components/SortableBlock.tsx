@@ -25,7 +25,7 @@ const SortableBlock: React.FC<SortableBlockProps> = ({
     background: isGhost ? '#4caf50' : '#23283a',
     borderRadius: 8,
     padding: '1.2rem 1.5rem',
-    marginBottom: 24,
+    marginBottom: 40,
     border: isGhost ? '2px dashed #4caf50' : '2px solid #4caf50',
     color: '#fff',
     cursor: isGhost ? 'pointer' : 'grab',

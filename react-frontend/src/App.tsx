@@ -10,6 +10,14 @@ import SortableBlock from './components/SortableBlock';
 import DraggableHookOption from './components/DraggableHookOption';
 import TrashDropzone from './components/TrashDropzone';
 import PathDropzone from './components/PathDropzone';
+import {
+  navStyle,
+  mainStyle,
+  centerColumnStyle,
+  pathEditorStyle,
+  rightPanelStyle,
+  appContainerStyle,
+} from './AppStyles';
 
 // List of hook entry points
 const HOOK_PATHS = [
@@ -98,7 +106,7 @@ function App() {
   }
 
   function handleDragOver(event: any) {
-    // No-op: do not set state here to avoid update loops
+    // No setState here; pass event.over?.id directly to PathDropzone
   }
 
   function handleDragEnd(event: any) {
@@ -184,25 +192,9 @@ function App() {
   }
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: '#181c24', padding: '0 32px' }}>
+    <div style={appContainerStyle}>
       {/* Left nav */}
-      <nav style={{
-        width: 280,
-        background: '#23283a',
-        color: '#fff',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        padding: '2rem 1.5rem 1rem 1.5rem',
-        borderRight: '2px solid #222',
-        minHeight: '100vh',
-        position: 'fixed',
-        left: 0,
-        top: 0,
-        zIndex: 10,
-        overflowY: 'auto',
-        marginRight: 40,
-      }}>
+      <nav style={navStyle}>
         <h2 style={{ marginBottom: '2rem', fontSize: '1.2rem', letterSpacing: 1 }}>Menu</h2>
         <div style={{ width: '100%' }}>
           <h3 style={{ marginBottom: 16, fontSize: '1.25rem' }}>Hook Paths</h3>
@@ -254,37 +246,10 @@ function App() {
         onDragOver={handleDragOver}
         onDragEnd={handleDragEnd}
       >
-        <main
-          style={{
-            display: 'grid',
-            gridTemplateColumns: '280px 0.8fr 320px',
-            gap: 48,
-            padding: '2.5rem 0',
-            paddingLeft: 0,
-            paddingRight: 0,
-            color: '#fff',
-            minHeight: '100vh',
-            width: '100vw',
-            boxSizing: 'border-box',
-          }}
-        >
+        <main style={mainStyle}>
           {/* Center: Path editor + trash */}
-          <div style={{ display: 'flex', flexDirection: 'column', width: '100%', gridColumn: 2, marginLeft: 24, marginRight: 24 }}>
-            <div style={{
-              width: '100%',
-              background: '#23283a',
-              borderRadius: 12,
-              padding: '2rem 2.2rem',
-              border: '2px solid #333',
-              minHeight: 120,
-              overflowY: 'auto',
-              position: 'relative',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'stretch',
-              justifyContent: 'flex-start',
-              zIndex: 1,
-            }}>
+          <div style={centerColumnStyle}>
+            <div style={pathEditorStyle}>
               <h3 style={{ marginBottom: 22, fontSize: '1.2rem' }}>
                 {selectedPath ? `Edit Path: ${selectedPath}` : 'Select a Hook Path'}
               </h3>
@@ -296,8 +261,6 @@ function App() {
                   >
                     <PathDropzone
                       pathBlocks={pathBlocks[selectedPath] || []}
-                      activeDrag={activeDrag}
-                      overId={activeDrag ? (activeDrag.from === 'options' ? (activeDrag.uniqueId || activeDrag.id) : activeDrag.id) : null}
                     />
                   </SortableContext>
                 </>
@@ -309,25 +272,7 @@ function App() {
             </div>
           </div>
           {/* Right: Hook options */}
-          <div
-            style={{
-              width: '100%',
-              maxWidth: 320,
-              background: '#23283a',
-              borderRadius: 12,
-              padding: '2rem 1.2rem',
-              border: '2px solid #333',
-              minHeight: 400,
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'stretch',
-              justifyContent: 'flex-start',
-              marginLeft: 90,
-              marginRight: 16,
-              zIndex: 1,
-              gridColumn: 3,
-            }}
-          >
+          <div style={rightPanelStyle}>
             <h3 style={{ marginBottom: 22, fontSize: '1.15rem' }}>Available Hooks</h3>
             <div>
               {HOOK_OPTIONS.map(opt => (

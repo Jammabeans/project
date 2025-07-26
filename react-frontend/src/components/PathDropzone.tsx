@@ -1,27 +1,31 @@
 import React from 'react';
-import { useDroppable } from '@dnd-kit/core';
-import SortableBlock, { SortableBlockProps } from './SortableBlock';
+import { useDroppable, useDndContext } from '@dnd-kit/core';
+import SortableBlock from './SortableBlock';
 
 export interface PathDropzoneProps {
   pathBlocks: { id: string; typeId: string; label: string }[];
-  activeDrag?: any;
-  overId?: string | null;
 }
 
-const PathDropzone: React.FC<PathDropzoneProps> = ({ pathBlocks, activeDrag, overId }) => {
+const PathDropzone: React.FC<PathDropzoneProps> = ({ pathBlocks }) => {
   const { setNodeRef, isOver } = useDroppable({
     id: 'path-dropzone',
   });
 
-  // Calculate ghost index for drop preview
+  // Use dnd-kit context to get current over and active
+  const { over, active } = useDndContext();
+
+  // Calculate ghost index and label for drop preview
   let ghostIndex: number | null = null;
-  if (activeDrag?.from === 'options' && overId) {
-    if (overId === 'path-dropzone') {
+  let ghostLabel: string = '';
+  const isDraggingFromOptions = active?.data?.current?.from === 'options';
+  if (isDraggingFromOptions && over?.id) {
+    if (over.id === 'path-dropzone') {
       ghostIndex = pathBlocks.length;
     } else {
-      const idx = pathBlocks.findIndex(b => b.id === overId);
+      const idx = pathBlocks.findIndex(b => b.id === over.id.toString());
       if (idx !== -1) ghostIndex = idx;
     }
+    ghostLabel = active?.data?.current?.label || '';
   }
 
   return (
@@ -51,13 +55,26 @@ const PathDropzone: React.FC<PathDropzoneProps> = ({ pathBlocks, activeDrag, ove
       )}
       {pathBlocks.map((block, idx) => (
         <React.Fragment key={block.id}>
-          {ghostIndex === idx && activeDrag?.from === 'options' && (
-            <SortableBlock
-              id="ghost"
-              label={activeDrag.label || ''}
-              index={idx}
-              isGhost={true}
-            />
+          {ghostIndex === idx && isDraggingFromOptions && (
+            <div
+              style={{
+                opacity: 0.4,
+                background: '#4caf50',
+                border: '2px dashed #4caf50',
+                borderRadius: 8,
+                padding: '1.2rem 1.5rem',
+                marginBottom: 24,
+                color: '#fff',
+                fontWeight: 600,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 16,
+                pointerEvents: 'none',
+              }}
+            >
+              <span>{ghostLabel}</span>
+              <span style={{ color: '#aaa', fontSize: '0.9em' }}>#{idx + 1}</span>
+            </div>
           )}
           <div style={{ position: 'relative' }}>
             <SortableBlock id={block.id} label={block.label} index={idx} />
@@ -78,31 +95,50 @@ const PathDropzone: React.FC<PathDropzoneProps> = ({ pathBlocks, activeDrag, ove
         </React.Fragment>
       ))}
       {/* Ghost at end if dropping at end */}
-      {ghostIndex === pathBlocks.length && activeDrag?.from === 'options' && (
-        <SortableBlock
-          id="ghost"
-          label={activeDrag.label || ''}
-          index={pathBlocks.length}
-          isGhost={true}
-        />
+      {ghostIndex === pathBlocks.length && isDraggingFromOptions && (
+        <div
+          style={{
+            opacity: 0.4,
+            background: '#4caf50',
+            border: '2px dashed #4caf50',
+            borderRadius: 8,
+            padding: '1.2rem 1.5rem',
+            marginBottom: 24,
+            color: '#fff',
+            fontWeight: 600,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 16,
+            pointerEvents: 'none',
+          }}
+        >
+          <span>{ghostLabel}</span>
+          <span style={{ color: '#aaa', fontSize: '0.9em' }}>#{pathBlocks.length + 1}</span>
+        </div>
       )}
       {/* Phantom drop area at the end for easy dropping */}
       <div
         style={{
-          minHeight: 32,
+          minHeight: 80,
           marginTop: 8,
-          border: isOver ? '2.5px dashed #81c784' : '2px dashed #4caf50',
-          borderRadius: 6,
+          border: isOver ? '3px solid #81c784' : '2.5px dashed #4caf50',
+          borderRadius: 8,
           background: isOver ? '#263238' : 'transparent',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          color: '#aaa',
-          fontSize: '1em',
-          transition: 'background 0.2s, border 0.2s',
+          color: isOver ? '#81c784' : '#aaa',
+          fontSize: '1.1em',
+          fontWeight: 600,
+          letterSpacing: 0.5,
+          transition: 'background 0.2s, border 0.2s, color 0.2s',
+          cursor: 'pointer',
         }}
       >
-        {pathBlocks.length === 0 ? '' : 'Drop here to add to end'}
+        <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontSize: 22, fontWeight: 700 }}>+</span>
+          Drop here to add to end
+        </span>
       </div>
     </div>
   );
