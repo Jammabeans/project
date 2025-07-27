@@ -4,7 +4,7 @@ import { DndContext, closestCenter, DragOverlay } from '@dnd-kit/core';
 import { arrayMove, SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { useDispatch, useSelector } from 'react-redux';
 import type { RootState } from './store';
-import { setAccount } from './store';
+import { setAccount, addImplementedPath, removeImplementedPath } from './store';
 
 import SortableBlock from './components/SortableBlock';
 import DraggableHookOption from './components/DraggableHookOption';
@@ -53,14 +53,15 @@ function generateBlockId(typeId: string) {
 
 function App() {
   const account = useSelector((state: RootState) => state.wallet.account);
+  const implementedPaths = useSelector((state: RootState) => state.implementedPaths.implementedPaths);
   const dispatch = useDispatch();
   const [error, setError] = useState<string | null>(null);
 
   // UI state
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
 
-  // Persisted state: blocks per path
-  const [pathBlocks, setPathBlocks] = useState<Record<string, { id: string; typeId: string; label: string }[]>>({});
+  // Persisted state: blocks per path (now includes value for each block)
+  const [pathBlocks, setPathBlocks] = useState<Record<string, { id: string; typeId: string; label: string; value?: any }[]>>({});
 
   // Drag state
   const [activeDrag, setActiveDrag] = useState<null | { id: string; from: 'options' | 'path'; typeId?: string; label?: string; uniqueId?: string }>(null);
@@ -86,6 +87,17 @@ function App() {
     dispatch(setAccount(null));
   };
 
+  // Handler to update value for a block in the edit path
+  function handleBlockChange(blockId: string, value: any) {
+    if (!selectedPath) return;
+    setPathBlocks(prev => ({
+      ...prev,
+      [selectedPath]: (prev[selectedPath] || []).map(b =>
+        b.id === blockId ? { ...b, value } : b
+      ),
+    }));
+  }
+
   // DnD handlers
   function handleDragStart(event: any) {
     const { active } = event;
@@ -106,7 +118,7 @@ function App() {
   }
 
   function handleDragOver(event: any) {
-    // No setState here; pass event.over?.id directly to PathDropzone
+    // No-op: do not set state here to avoid update loops
   }
 
   function handleDragEnd(event: any) {
@@ -132,6 +144,7 @@ function App() {
         id: activeDrag.uniqueId!,
         typeId: activeDrag.typeId!,
         label: activeDrag.label!,
+        value: undefined,
       };
       setPathBlocks(prev => ({
         ...prev,
@@ -204,8 +217,22 @@ function App() {
                 <button
                   style={{
                     width: '100%',
-                    background: selectedPath === path ? '#4caf50' : '#23283a',
-                    color: selectedPath === path ? '#fff' : '#aaa',
+                    background:
+                      selectedPath === path
+                        ? '#4caf50' // Green: selected
+                        : implementedPaths.includes(path)
+                        ? '#1976d2' // Blue: implemented
+                        : (pathBlocks[path] && pathBlocks[path].length > 0)
+                        ? '#ff9800' // Orange: staged
+                        : '#23283a', // Black: default
+                    color:
+                      selectedPath === path
+                        ? '#fff'
+                        : implementedPaths.includes(path)
+                        ? '#fff'
+                        : (pathBlocks[path] && pathBlocks[path].length > 0)
+                        ? '#23283a'
+                        : '#aaa',
                     border: '1px solid #333',
                     borderRadius: 6,
                     padding: '1.1em 1.2em',
@@ -261,6 +288,7 @@ function App() {
                   >
                     <PathDropzone
                       pathBlocks={pathBlocks[selectedPath] || []}
+                      onBlockChange={handleBlockChange}
                     />
                   </SortableContext>
                 </>

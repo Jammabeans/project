@@ -3,10 +3,11 @@ import { useDroppable, useDndContext } from '@dnd-kit/core';
 import SortableBlock from './SortableBlock';
 
 export interface PathDropzoneProps {
-  pathBlocks: { id: string; typeId: string; label: string }[];
+  pathBlocks: { id: string; typeId: string; label: string; value?: any }[];
+  onBlockChange?: (id: string, value: any) => void;
 }
 
-const PathDropzone: React.FC<PathDropzoneProps> = ({ pathBlocks }) => {
+const PathDropzone: React.FC<PathDropzoneProps> = ({ pathBlocks, onBlockChange }) => {
   const { setNodeRef, isOver } = useDroppable({
     id: 'path-dropzone',
   });
@@ -77,7 +78,15 @@ const PathDropzone: React.FC<PathDropzoneProps> = ({ pathBlocks }) => {
             </div>
           )}
           <div style={{ position: 'relative' }}>
-            <SortableBlock id={block.id} label={block.label} index={idx} />
+            <SortableBlock
+              id={block.id}
+              label={block.label}
+              index={idx}
+              typeId={block.typeId}
+              expanded={true}
+              value={block.value}
+              onChange={val => onBlockChange?.(block.id, val)}
+            />
             {/* Draw connecting line */}
             {idx < pathBlocks.length - 1 && (
               <div style={{
