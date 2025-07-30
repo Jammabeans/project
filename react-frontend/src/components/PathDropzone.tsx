@@ -44,6 +44,7 @@ const PathDropzone: React.FC<PathDropzoneProps> = ({ pathBlocks, onBlockChange }
         transition: 'background 0.2s, border 0.2s',
         display: 'flex',
         flexDirection: 'column',
+        alignItems: 'center',
         gap: 16,
         flexGrow: 1,
         zIndex: 2,

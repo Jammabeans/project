@@ -18,6 +18,7 @@ import {
   rightPanelStyle,
   appContainerStyle,
 } from './AppStyles';
+import AllV4PoolsBlock from './components/AllV4PoolsBlock';
 
 // List of hook entry points
 const HOOK_PATHS = [
@@ -59,6 +60,7 @@ function App() {
 
   // UI state
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
+  const [showAllV4Pools, setShowAllV4Pools] = useState<boolean>(false);
 
   // Persisted state: blocks per path (now includes value for each block)
   const [pathBlocks, setPathBlocks] = useState<Record<string, { id: string; typeId: string; label: string; value?: any }[]>>({});
@@ -210,6 +212,29 @@ function App() {
       <nav style={navStyle}>
         <h2 style={{ marginBottom: '2rem', fontSize: '1.2rem', letterSpacing: 1 }}>Menu</h2>
         <div style={{ width: '100%' }}>
+          <button
+            style={{
+              width: '100%',
+              background: showAllV4Pools ? '#4caf50' : '#23283a',
+              color: showAllV4Pools ? '#fff' : '#aaa',
+              border: '1px solid #333',
+              borderRadius: 6,
+              padding: '1.1em 1.2em',
+              fontWeight: 700,
+              fontSize: '1.1rem',
+              cursor: 'pointer',
+              textAlign: 'left',
+              letterSpacing: 0.5,
+              transition: 'background 0.2s, color 0.2s',
+              marginBottom: 16,
+            }}
+            onClick={() => {
+              setShowAllV4Pools(true);
+              setSelectedPath(null);
+            }}
+          >
+            All V4 Pools
+          </button>
           <h3 style={{ marginBottom: 16, fontSize: '1.25rem' }}>Hook Paths</h3>
           <ul style={{ listStyle: 'none', padding: 0 }}>
             {HOOK_PATHS.map(path => (
@@ -218,7 +243,7 @@ function App() {
                   style={{
                     width: '100%',
                     background:
-                      selectedPath === path
+                      selectedPath === path && !showAllV4Pools
                         ? '#4caf50' // Green: selected
                         : implementedPaths.includes(path)
                         ? '#1976d2' // Blue: implemented
@@ -226,7 +251,7 @@ function App() {
                         ? '#ff9800' // Orange: staged
                         : '#23283a', // Black: default
                     color:
-                      selectedPath === path
+                      selectedPath === path && !showAllV4Pools
                         ? '#fff'
                         : implementedPaths.includes(path)
                         ? '#fff'
@@ -243,7 +268,10 @@ function App() {
                     letterSpacing: 0.5,
                     transition: 'background 0.2s, color 0.2s',
                   }}
-                  onClick={() => setSelectedPath(path)}
+                  onClick={() => {
+                    setSelectedPath(path);
+                    setShowAllV4Pools(false);
+                  }}
                 >
                   {path}
                 </button>
@@ -277,20 +305,26 @@ function App() {
           {/* Center: Path editor + trash */}
           <div style={centerColumnStyle}>
             <div style={pathEditorStyle}>
-              <h3 style={{ marginBottom: 22, fontSize: '1.2rem' }}>
-                {selectedPath ? `Edit Path: ${selectedPath}` : 'Select a Hook Path'}
-              </h3>
-              {selectedPath && (
+              {showAllV4Pools ? (
+                <AllV4PoolsBlock />
+              ) : (
                 <>
-                  <SortableContext
-                    items={(pathBlocks[selectedPath] || []).map(b => b.id)}
-                    strategy={verticalListSortingStrategy}
-                  >
-                    <PathDropzone
-                      pathBlocks={pathBlocks[selectedPath] || []}
-                      onBlockChange={handleBlockChange}
-                    />
-                  </SortableContext>
+                  <h3 style={{ marginBottom: 22, fontSize: '1.2rem' }}>
+                    {selectedPath ? `Edit Path: ${selectedPath}` : 'Select a Hook Path'}
+                  </h3>
+                  {selectedPath && (
+                    <>
+                      <SortableContext
+                        items={(pathBlocks[selectedPath] || []).map(b => b.id)}
+                        strategy={verticalListSortingStrategy}
+                      >
+                        <PathDropzone
+                          pathBlocks={pathBlocks[selectedPath] || []}
+                          onBlockChange={handleBlockChange}
+                        />
+                      </SortableContext>
+                    </>
+                  )}
                 </>
               )}
             </div>
