@@ -29,6 +29,11 @@ const AllV4PoolsBlock: React.FC = () => {
         margin: "0 auto"
       }}
     >
+      {chainSettings && (
+        <div style={{ color: "#00bcd4", fontWeight: 800, fontSize: "1.1em", marginBottom: 4 }}>
+          Connected to: {chainSettings.name}
+        </div>
+      )}
       <div style={{ fontWeight: 700, fontSize: "1.2em", marginBottom: 8 }}>
         All V4 Pools Search
       </div>

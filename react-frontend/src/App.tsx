@@ -20,6 +20,7 @@ import {
   appContainerStyle,
 } from './AppStyles';
 import AllV4PoolsBlock from './components/AllV4PoolsBlock';
+import PoolActionsBlock from './components/PoolActionsBlock';
 
 // List of hook entry points
 const HOOK_PATHS = [
@@ -317,7 +318,11 @@ function App() {
           <div style={centerColumnStyle}>
             <div style={pathEditorStyle}>
               {showAllV4Pools ? (
-                <AllV4PoolsBlock />
+                <>
+                  <AllV4PoolsBlock />
+                  {console.log("App.tsx: Rendering PoolActionsBlock")}
+                  <PoolActionsBlock />
+                </>
               ) : (
                 <>
                   <h3 style={{ marginBottom: 22, fontSize: '1.2rem' }}>
