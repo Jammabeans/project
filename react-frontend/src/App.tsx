@@ -4,7 +4,8 @@ import { DndContext, closestCenter, DragOverlay } from '@dnd-kit/core';
 import { arrayMove, SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { useDispatch, useSelector } from 'react-redux';
 import type { RootState } from './store';
-import { setAccount, addImplementedPath, removeImplementedPath } from './store';
+import { setAccount, setChainId, addImplementedPath, removeImplementedPath } from './store';
+import { BrowserProvider } from 'ethers';
 
 import SortableBlock from './components/SortableBlock';
 import DraggableHookOption from './components/DraggableHookOption';
@@ -76,10 +77,20 @@ function App() {
       return;
     }
     try {
-      // @ts-ignore
-      const provider = new window.ethers.BrowserProvider((window as any).ethereum);
+      const provider = new BrowserProvider((window as any).ethereum);
       const accounts = await provider.send('eth_requestAccounts', []);
       dispatch(setAccount(accounts[0]));
+      // Get chainId and set in Redux
+      let chainId: number | null = null;
+      if ((window as any).ethereum.chainId) {
+        chainId = parseInt((window as any).ethereum.chainId, 16);
+      } else if ((window as any).ethereum.request) {
+        const hexChainId = await (window as any).ethereum.request({ method: 'eth_chainId' });
+        chainId = parseInt(hexChainId, 16);
+      }
+      if (chainId) {
+        dispatch(setChainId(chainId));
+      }
     } catch (err: any) {
       setError(err.message || 'Failed to connect wallet');
     }
@@ -211,6 +222,16 @@ function App() {
       {/* Left nav */}
       <nav style={navStyle}>
         <h2 style={{ marginBottom: '2rem', fontSize: '1.2rem', letterSpacing: 1 }}>Menu</h2>
+        {account ? (
+          <>
+            <div style={{ wordBreak: 'break-all', fontSize: '0.9em', marginBottom: 16, marginTop: 0 }}>
+              {account}
+            </div>
+            <button onClick={logout} style={{ marginBottom: 24 }}>Logout</button>
+          </>
+        ) : (
+          <button onClick={connectWallet} style={{ marginBottom: 24, marginTop: 0 }}>Connect Wallet</button>
+        )}
         <div style={{ width: '100%' }}>
           <button
             style={{
@@ -279,16 +300,6 @@ function App() {
             ))}
           </ul>
         </div>
-        {account ? (
-          <>
-            <div style={{ wordBreak: 'break-all', fontSize: '0.9em', marginBottom: 16, marginTop: 24 }}>
-              {account}
-            </div>
-            <button onClick={logout} style={{ marginBottom: 24 }}>Logout</button>
-          </>
-        ) : (
-          <button onClick={connectWallet} style={{ marginBottom: 24, marginTop: 24 }}>Connect Wallet</button>
-        )}
         <div style={{ marginTop: 'auto', fontSize: '0.8em', color: '#aaa' }}>
           Hooks Master Control
         </div>

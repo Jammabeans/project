@@ -2,10 +2,12 @@ import { configureStore, createSlice, PayloadAction } from '@reduxjs/toolkit';
 
 interface WalletState {
   account: string | null;
+  chainId: number | null;
 }
 
 const initialWalletState: WalletState = {
   account: null,
+  chainId: null,
 };
 
 const walletSlice = createSlice({
@@ -14,6 +16,9 @@ const walletSlice = createSlice({
   reducers: {
     setAccount(state, action: PayloadAction<string | null>) {
       state.account = action.payload;
+    },
+    setChainId(state, action: PayloadAction<number | null>) {
+      state.chainId = action.payload;
     },
   },
 });
@@ -47,7 +52,7 @@ const implementedPathsSlice = createSlice({
   },
 });
 
-export const { setAccount } = walletSlice.actions;
+export const { setAccount, setChainId } = walletSlice.actions;
 export const {
   addImplementedPath,
   removeImplementedPath,
