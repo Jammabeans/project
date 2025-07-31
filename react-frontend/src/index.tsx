@@ -3,7 +3,9 @@ import ReactDOM from 'react-dom/client';
 import './index.css';
 import App from './App';
 import reportWebVitals from './reportWebVitals';
-import { Provider } from 'react-redux';
+import { Provider as UrqlProvider } from 'urql';
+import { urqlClient } from './urqlClient';
+import { Provider as ReduxProvider } from 'react-redux';
 import { store } from './store';
 
 const root = ReactDOM.createRoot(
@@ -11,9 +13,11 @@ const root = ReactDOM.createRoot(
 );
 root.render(
   <React.StrictMode>
-    <Provider store={store}>
-      <App />
-    </Provider>
+    <ReduxProvider store={store}>
+      <UrqlProvider value={urqlClient}>
+        <App />
+      </UrqlProvider>
+    </ReduxProvider>
   </React.StrictMode>
 );
 

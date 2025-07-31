@@ -2,6 +2,11 @@
 # yarn lockfile v1
 
 
+"@0no-co/graphql.web@^1.0.13":
+  "integrity" "sha512-/1iHy9TTr63gE1YcR5idjx8UREz1s0kFhydf3bBLCXyqjhkIc6igAzTOx3zPifCwFR87tsh/4Pa9cNts6d2otw=="
+  "resolved" "https://registry.npmjs.org/@0no-co/graphql.web/-/graphql.web-1.2.0.tgz"
+  "version" "1.2.0"
+
 "@adobe/css-tools@^4.4.0":
   "integrity" "sha512-VQKMkwriZbaOgVCby1UDY/LDk5fIjhQicCvVPFqfe+69fWaPWydbWJ3wRt59/YzIwda1I81loas3oCoHxnqvdA=="
   "resolved" "https://registry.npmjs.org/@adobe/css-tools/-/css-tools-4.4.3.tgz"
@@ -2940,6 +2945,14 @@
     "tiny-invariant" "^1.1.0"
     "tiny-warning" "^1.0.3"
 
+"@urql/core@^5.1.1":
+  "integrity" "sha512-/n0ieD0mvvDnVAXEQgX/7qJiVcvYvNkOHeBvkwtylfjydar123caCXcl58PXFY11oU1oquJocVXHxLAbtv4x1A=="
+  "resolved" "https://registry.npmjs.org/@urql/core/-/core-5.2.0.tgz"
+  "version" "5.2.0"
+  dependencies:
+    "@0no-co/graphql.web" "^1.0.13"
+    "wonka" "^6.3.2"
+
 "@webassemblyjs/ast@^1.14.1", "@webassemblyjs/ast@1.14.1":
   "integrity" "sha512-nuBEDgQfm1ccRp/8bCQrx1frohyufl4JlbMMZ4P1wpeOfDhF6FQkxZJ1b/e+PLwr6X1Nhw6OLme5usuBWYBvuQ=="
   "resolved" "https://registry.npmjs.org/@webassemblyjs/ast/-/ast-1.14.1.tgz"
@@ -5861,6 +5874,11 @@
   "integrity" "sha512-EtKwoO6kxCL9WO5xipiHTZlSzBm7WLT627TqC/uVRd0HKmq8NXyebnNYxDoBi7wt8eTWrUrKXCOVaFq9x1kgag=="
   "resolved" "https://registry.npmjs.org/graphemer/-/graphemer-1.4.0.tgz"
   "version" "1.4.0"
+
+"graphql@^14.0.0 || ^15.0.0 || ^16.0.0", "graphql@^16.11.0":
+  "integrity" "sha512-mS1lbMsxgQj6hge1XZ6p7GPhbrtFwUFYi3wRzXAC/FmYnyXMTvvI3td3rjmQ2u8ewXueaSvRPWaEcgVVOT9Jnw=="
+  "resolved" "https://registry.npmjs.org/graphql/-/graphql-16.11.0.tgz"
+  "version" "16.11.0"
 
 "gzip-size@^6.0.0":
   "integrity" "sha512-ax7ZYomf6jqPTQ4+XCpUGyXKHk5WweS+e05MBO4/y3WJ5RkmPXNKvX+bx1behVILVwr6JSQvZAku021CHPXG3Q=="
@@ -9036,7 +9054,7 @@
   optionalDependencies:
     "fsevents" "^2.3.2"
 
-"react@^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0", "react@^16.9.0 || ^17.0.0 || ^18 || ^19", "react@^18.0 || ^19", "react@^18.0.0 || ^19.0.0", "react@^19.1.0", "react@>= 16", "react@>=16.8.0":
+"react@^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0", "react@^16.9.0 || ^17.0.0 || ^18 || ^19", "react@^18.0 || ^19", "react@^18.0.0 || ^19.0.0", "react@^19.1.0", "react@>= 16", "react@>= 16.8.0", "react@>=16.8.0":
   "integrity" "sha512-FS+XFBNvn3GTAWq26joslQgWNoFu08F4kl0J4CgdNKADkdSGXQyTCnKteIAJy96Br6YbpEU1LSzV5dYtjMkMDg=="
   "resolved" "https://registry.npmjs.org/react/-/react-19.1.0.tgz"
   "version" "19.1.0"
@@ -10569,6 +10587,14 @@
     "querystringify" "^2.1.1"
     "requires-port" "^1.0.0"
 
+"urql@^4.2.2":
+  "integrity" "sha512-3GgqNa6iF7bC4hY/ImJKN4REQILcSU9VKcKL8gfELZM8mM5BnLH1BsCc8kBdnVGD1LIFOs4W3O2idNHhON1r0w=="
+  "resolved" "https://registry.npmjs.org/urql/-/urql-4.2.2.tgz"
+  "version" "4.2.2"
+  dependencies:
+    "@urql/core" "^5.1.1"
+    "wonka" "^6.3.2"
+
 "use-sync-external-store@^1.4.0":
   "integrity" "sha512-Rb46I4cGGVBmjamjphe8L/UnvJD+uPPtTkNvX5mZgqdbavhI4EbgIWJiIHXJ8bc/i9EQGPRh4DwEURJ552Do0A=="
   "resolved" "https://registry.npmjs.org/use-sync-external-store/-/use-sync-external-store-1.5.0.tgz"
@@ -10903,6 +10929,11 @@
   "version" "3.1.0"
   dependencies:
     "string-width" "^4.0.0"
+
+"wonka@^6.3.2":
+  "integrity" "sha512-SSil+ecw6B4/Dm7Pf2sAshKQ5hWFvfyGlfPbEd6A14dOH6VDjrmbY86u6nZvy9omGwwIPFR8V41+of1EezgoUw=="
+  "resolved" "https://registry.npmjs.org/wonka/-/wonka-6.3.5.tgz"
+  "version" "6.3.5"
 
 "word-wrap@^1.2.5", "word-wrap@~1.2.3":
   "integrity" "sha512-BN22B5eaMMI9UMtjrGd5g5eCYPpCPDUy0FJXbYsaT5zYxjFOckS53SQDE3pWkVoWpHXVb3BrYcEN4Twa55B5cA=="

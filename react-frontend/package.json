@@ -17,11 +17,13 @@
     "@types/react-dom": "^19.0.0",
     "@uniswap/v4-sdk": "^1.21.4",
     "ethers": "^6.15.0",
+    "graphql": "^16.11.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-redux": "^9.2.0",
     "react-scripts": "5.0.1",
     "typescript": "^4.4.2",
+    "urql": "^4.2.2",
     "web-vitals": "^2.1.0"
   },
   "scripts": {

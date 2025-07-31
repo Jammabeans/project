@@ -2,7 +2,25 @@ import React, { useState } from "react";
 import { useSelector } from "react-redux";
 import { RootState } from "../store";
 import { getChainSettings } from "../config/chainSettings";
-// import { Pool } from "@uniswap/v4-sdk"; // Uncomment when integrating SDK
+import { useQuery } from "urql";
+
+const POOL_SEARCH_QUERY = `
+  query Pools($token0: String!, $token1: String!, $feeTier: Int!) {
+    pools(
+      where: {
+        token0: $token0
+        token1: $token1
+        feeTier: $feeTier
+      }
+    ) {
+      id
+      feeTier
+      liquidity
+      token0 { id symbol }
+      token1 { id symbol }
+    }
+  }
+`;
 
 const AllV4PoolsBlock: React.FC = () => {
   const chainId = useSelector((state: RootState) => state.wallet.chainId);
@@ -20,36 +38,33 @@ const AllV4PoolsBlock: React.FC = () => {
   const [tokenOutMode, setTokenOutMode] = useState<"select" | "custom">("select");
 
   const [fee, setFee] = useState("");
-  const [searching, setSearching] = useState(false);
-  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [searchClicked, setSearchClicked] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleSearch = async () => {
-    setSearching(true);
+  // Use urql to query pools
+  const tokenInAddr = tokenInMode === "custom" ? tokenInCustom : tokenIn;
+  const tokenOutAddr = tokenOutMode === "custom" ? tokenOutCustom : tokenOut;
+  const feeInt = parseInt(fee, 10);
+
+  const [result] = useQuery({
+    query: POOL_SEARCH_QUERY,
+    variables: {
+      token0: tokenInAddr,
+      token1: tokenOutAddr,
+      feeTier: feeInt,
+    },
+    pause: !searchClicked || !tokenInAddr || !tokenOutAddr || !fee || isNaN(feeInt),
+  });
+
+  const { data, fetching, error: queryError } = result;
+
+  const handleSearch = () => {
     setError(null);
-    setSearchResults([]);
-    // Use custom address if "Other..." is selected
-    const tokenInAddr = tokenInMode === "custom" ? tokenInCustom : tokenIn;
-    const tokenOutAddr = tokenOutMode === "custom" ? tokenOutCustom : tokenOut;
-    // TODO: Integrate Uniswap V4 SDK pool search here
-    // For now, mock a result if all fields are filled
-    if (tokenInAddr && tokenOutAddr && fee) {
-      setTimeout(() => {
-        setSearchResults([
-          {
-            id: "mock-1",
-            tokenIn: tokenInAddr,
-            tokenOut: tokenOutAddr,
-            fee,
-            label: `Pool: ${tokenInAddr.slice(0, 6)}... / ${tokenOutAddr.slice(0, 6)}... @ ${fee}`,
-          },
-        ]);
-        setSearching(false);
-      }, 800);
-    } else {
-      setError("Please enter token in, token out, and fee.");
-      setSearching(false);
+    if (!tokenInAddr || !tokenOutAddr || !fee || isNaN(feeInt)) {
+      setError("Please enter valid token in, token out, and fee.");
+      return;
     }
+    setSearchClicked(true);
   };
 
   return (
@@ -253,19 +268,24 @@ const AllV4PoolsBlock: React.FC = () => {
           fontSize: "1em",
           cursor: "pointer"
         }}
-        disabled={searching}
+        disabled={fetching}
       >
-        {searching ? "Searching..." : "Search"}
+        {fetching ? "Searching..." : "Search"}
       </button>
       {error && (
         <div style={{ color: "#ff5252", fontWeight: 500, marginTop: 8 }}>
           {error}
         </div>
       )}
-      {searchResults.length > 0 && (
+      {queryError && (
+        <div style={{ color: "#ff5252", fontWeight: 500, marginTop: 8 }}>
+          {queryError.message}
+        </div>
+      )}
+      {data && data.pools && data.pools.length > 0 && (
         <div style={{ width: "100%", marginTop: 16 }}>
           <div style={{ fontWeight: 600, marginBottom: 8, color: "#00bcd4" }}>Found Pools:</div>
-          {searchResults.map(pool => (
+          {data.pools.map((pool: any) => (
             <div
               key={pool.id}
               style={{
@@ -280,13 +300,19 @@ const AllV4PoolsBlock: React.FC = () => {
               }}
               // TODO: Add onClick to select pool
             >
-              {pool.label}
+              Pool: {pool.token0.symbol} / {pool.token1.symbol} @ {pool.feeTier}
+              <div style={{ fontWeight: 400, fontSize: "0.95em", color: "#aaa" }}>
+                Liquidity: {pool.liquidity}
+              </div>
+              <div style={{ fontWeight: 400, fontSize: "0.95em", color: "#aaa" }}>
+                Pool ID: {pool.id}
+              </div>
             </div>
           ))}
         </div>
       )}
       <div style={{ color: "#aaa", fontWeight: 400, fontSize: "0.95em", marginTop: 12 }}>
-        (Search uses mock data. SDK integration coming soon.)
+        (Search uses live subgraph data. If no results, check addresses and fee.)
       </div>
     </div>
   );
