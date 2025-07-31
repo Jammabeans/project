@@ -21,6 +21,8 @@ import {
 } from './AppStyles';
 import AllV4PoolsBlock from './components/AllV4PoolsBlock';
 import PoolActionsBlock from './components/PoolActionsBlock';
+import MostLiquidPools from './components/MostLiquidPools';
+import PoolSearchBlock from './components/PoolSearchBlock';
 
 // List of hook entry points
 const HOOK_PATHS = [
@@ -319,8 +321,7 @@ function App() {
             <div style={pathEditorStyle}>
               {showAllV4Pools ? (
                 <>
-                  <AllV4PoolsBlock />
-                  {console.log("App.tsx: Rendering PoolActionsBlock")}
+                  <PoolSearchBlock />
                   <PoolActionsBlock />
                 </>
               ) : (
@@ -351,12 +352,18 @@ function App() {
           </div>
           {/* Right: Hook options */}
           <div style={rightPanelStyle}>
-            <h3 style={{ marginBottom: 22, fontSize: '1.15rem' }}>Available Hooks</h3>
-            <div>
-              {HOOK_OPTIONS.map(opt => (
-                <DraggableHookOption key={opt.id} typeId={opt.id} label={opt.label} />
-              ))}
-            </div>
+            {showAllV4Pools ? (
+              <MostLiquidPools />
+            ) : (
+              <>
+                <h3 style={{ marginBottom: 22, fontSize: '1.15rem' }}>Available Hooks</h3>
+                <div>
+                  {HOOK_OPTIONS.map(opt => (
+                    <DraggableHookOption key={opt.id} typeId={opt.id} label={opt.label} />
+                  ))}
+                </div>
+              </>
+            )}
           </div>
         </main>
         {/* Drag overlay for blocks */}

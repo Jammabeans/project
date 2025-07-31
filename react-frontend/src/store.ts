@@ -59,10 +59,48 @@ export const {
   setImplementedPaths,
 } = implementedPathsSlice.actions;
 
+// --- Pools Slice ---
+export interface PoolInfo {
+  id: string;
+  feeTier: number;
+  liquidity: string;
+  token0: { id: string; symbol: string };
+  token1: { id: string; symbol: string };
+}
+
+interface PoolsState {
+  pools: PoolInfo[];
+}
+
+const initialPoolsState: PoolsState = {
+  pools: [],
+};
+
+const poolsSlice = createSlice({
+  name: "pools",
+  initialState: initialPoolsState,
+  reducers: {
+    setPools(state, action: PayloadAction<PoolInfo[]>) {
+      state.pools = action.payload;
+    },
+    addPool(state, action: PayloadAction<PoolInfo>) {
+      if (!state.pools.find((p) => p.id === action.payload.id)) {
+        state.pools.push(action.payload);
+      }
+    },
+    clearPools(state) {
+      state.pools = [];
+    },
+  },
+});
+
+export const { setPools, addPool, clearPools } = poolsSlice.actions;
+
 export const store = configureStore({
   reducer: {
     wallet: walletSlice.reducer,
     implementedPaths: implementedPathsSlice.reducer,
+    pools: poolsSlice.reducer,
   },
 });
 

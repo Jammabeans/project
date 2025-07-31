@@ -1,7 +1,6 @@
 import React, { useEffect } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { RootState, setPools } from "../store";
-import { getChainSettings } from "../config/chainSettings";
 import { useQuery } from "urql";
 
 const TOP_POOLS_QUERY = `
@@ -20,11 +19,8 @@ const TOP_POOLS_QUERY = `
   }
 `;
 
-const AllV4PoolsBlock: React.FC = () => {
-  const chainId = useSelector((state: RootState) => state.wallet.chainId);
-  const chainSettings = chainId ? getChainSettings(chainId) : undefined;
+const MostLiquidPools: React.FC = () => {
   const dispatch = useDispatch();
-
   const [result] = useQuery({
     query: TOP_POOLS_QUERY,
     variables: {},
@@ -66,11 +62,6 @@ const AllV4PoolsBlock: React.FC = () => {
         margin: "0 auto"
       }}
     >
-      {chainSettings && (
-        <div style={{ color: "#00bcd4", fontWeight: 800, fontSize: "1.1em", marginBottom: 4 }}>
-          Connected to: {chainSettings.name}
-        </div>
-      )}
       <div style={{ fontWeight: 700, fontSize: "1.2em", marginBottom: 8 }}>
         Top 20 Most Liquid Pools
       </div>
@@ -125,4 +116,4 @@ const AllV4PoolsBlock: React.FC = () => {
   );
 };
 
-export default AllV4PoolsBlock;
+export default MostLiquidPools;
