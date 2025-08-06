@@ -1,7 +1,13 @@
 import React, { useState, useEffect } from "react";
-import { useSelector } from "react-redux";
-import { RootState } from "../store";
+import { useSelector, useDispatch } from "react-redux";
+import { RootState, AppDispatch } from "../store";
 import { getChainSettings } from "../config/chainSettings";
+import {
+  setTokenIn, setTokenInMode, setTokenInCustom,
+  setTokenOut, setTokenOutMode, setTokenOutCustom,
+  setSelectedPool
+} from "../store";
+import PoolInfoBlock from "./PoolInfoBlock";
 
 const POOL_SEARCH_QUERY = `
   query Pools($token0: String!, $token1: String!, $feeTier: Int!) {
@@ -22,21 +28,19 @@ const POOL_SEARCH_QUERY = `
 `;
 
 const PoolSearchBlock: React.FC = () => {
+  const dispatch = useDispatch<AppDispatch>();
   const chainId = useSelector((state: RootState) => state.wallet.chainId);
   const chainSettings = chainId ? getChainSettings(chainId) : undefined;
   const tokens = chainSettings?.tokens || [];
 
-  // Token In
-  const [token, setToken] = useState("");
-  const [tokenMode, setTokenMode] = useState<"select" | "custom">("select");
-  const [tokenCustom, setTokenCustom] = useState("");
+  // Redux state for search and selection
+  const {
+    tokenIn, tokenInMode, tokenInCustom,
+    tokenOut, tokenOutMode, tokenOutCustom,
+    selectedPool
+  } = useSelector((state: RootState) => state.poolSearch);
 
-  // Token Out
-  const [tokenOut, setTokenOut] = useState("");
-  const [tokenOutMode, setTokenOutMode] = useState<"select" | "custom">("select");
-  const [tokenOutCustom, setTokenOutCustom] = useState("");
-
-  // Snapshot pools
+  // Local state for snapshot and filtered pools
   const [snapshotPools, setSnapshotPools] = useState<any[]>([]);
   const [filteredSnapshotPools, setFilteredSnapshotPools] = useState<any[]>([]);
   const [snapshotError, setSnapshotError] = useState<string | null>(null);
@@ -58,14 +62,13 @@ const PoolSearchBlock: React.FC = () => {
       });
   }, []);
 
-  // Filter snapshot pools as soon as a token is provided
   // Filter pools by token in and token out
   useEffect(() => {
     let addr = "";
-    if (tokenMode === "custom") {
-      addr = tokenCustom.trim().toLowerCase();
+    if (tokenInMode === "custom") {
+      addr = tokenInCustom.trim().toLowerCase();
     } else {
-      addr = token.trim().toLowerCase();
+      addr = tokenIn.trim().toLowerCase();
     }
     if (!addr) {
       setFilteredSnapshotPools([]);
@@ -94,7 +97,12 @@ const PoolSearchBlock: React.FC = () => {
       });
     }
     setFilteredSnapshotPools(matches);
-  }, [token, tokenCustom, tokenMode, tokenOut, tokenOutCustom, tokenOutMode, snapshotPools]);
+  }, [tokenIn, tokenInCustom, tokenInMode, tokenOut, tokenOutCustom, tokenOutMode, snapshotPools]);
+
+  // If a pool is selected, show the info block
+  if (selectedPool) {
+    return <PoolInfoBlock pool={selectedPool} />;
+  }
 
   return (
     <div
@@ -122,21 +130,22 @@ const PoolSearchBlock: React.FC = () => {
       {/* Token In Address */}
       <label style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", width: "100%", gap: 4 }}>
         Token In Address
-        {tokenMode === "select" ? (
+        {tokenInMode === "select" ? (
           <>
             <select
-              value={token}
+              value={tokenIn}
               onChange={e => {
                 if (e.target.value === "__custom__") {
-                  setTokenMode("custom");
-                  setToken("");
+                  dispatch(setTokenInMode("custom"));
+                  dispatch(setTokenIn(""));
                 } else {
-                  setToken(e.target.value);
+                  dispatch(setTokenInMode("select"));
+                  dispatch(setTokenIn(e.target.value));
                 }
                 // Reset token out when token in changes
-                setTokenOut("");
-                setTokenOutCustom("");
-                setTokenOutMode("select");
+                dispatch(setTokenOut(""));
+                dispatch(setTokenOutCustom(""));
+                dispatch(setTokenOutMode("select"));
               }}
               style={{
                 width: "100%",
@@ -160,8 +169,8 @@ const PoolSearchBlock: React.FC = () => {
           <>
             <input
               type="text"
-              value={tokenCustom}
-              onChange={e => setTokenCustom(e.target.value)}
+              value={tokenInCustom}
+              onChange={e => dispatch(setTokenInCustom(e.target.value))}
               placeholder="0x... (custom token address)"
               style={{
                 width: "100%",
@@ -184,12 +193,12 @@ const PoolSearchBlock: React.FC = () => {
                 textDecoration: "underline"
               }}
               onClick={() => {
-                setTokenMode("select");
-                setToken("");
-                setTokenCustom("");
-                setTokenOut("");
-                setTokenOutCustom("");
-                setTokenOutMode("select");
+                dispatch(setTokenInMode("select"));
+                dispatch(setTokenIn(""));
+                dispatch(setTokenInCustom(""));
+                dispatch(setTokenOut(""));
+                dispatch(setTokenOutCustom(""));
+                dispatch(setTokenOutMode("select"));
               }}
             >
               Choose from list
@@ -198,9 +207,9 @@ const PoolSearchBlock: React.FC = () => {
         )}
       </label>
       {/* Token Out Address (options based on available matches) */}
-      {(token || tokenCustom) && (() => {
+      {(tokenIn || tokenInCustom) && (() => {
         // Compute available token out options from filtered pools
-        let addr = tokenMode === "custom" ? tokenCustom.trim().toLowerCase() : token.trim().toLowerCase();
+        let addr = tokenInMode === "custom" ? tokenInCustom.trim().toLowerCase() : tokenIn.trim().toLowerCase();
         const outOptions: { id: string, symbol: string, name?: string }[] = [];
         filteredSnapshotPools.forEach(pool => {
           const t0 = pool.token0;
@@ -221,10 +230,11 @@ const PoolSearchBlock: React.FC = () => {
                   value={tokenOut}
                   onChange={e => {
                     if (e.target.value === "__custom__") {
-                      setTokenOutMode("custom");
-                      setTokenOut("");
+                      dispatch(setTokenOutMode("custom"));
+                      dispatch(setTokenOut(""));
                     } else {
-                      setTokenOut(e.target.value);
+                      dispatch(setTokenOutMode("select"));
+                      dispatch(setTokenOut(e.target.value));
                     }
                   }}
                   style={{
@@ -250,7 +260,7 @@ const PoolSearchBlock: React.FC = () => {
                 <input
                   type="text"
                   value={tokenOutCustom}
-                  onChange={e => setTokenOutCustom(e.target.value)}
+                  onChange={e => dispatch(setTokenOutCustom(e.target.value))}
                   placeholder="0x... (custom token out address)"
                   style={{
                     width: "100%",
@@ -273,9 +283,9 @@ const PoolSearchBlock: React.FC = () => {
                     textDecoration: "underline"
                   }}
                   onClick={() => {
-                    setTokenOutMode("select");
-                    setTokenOut("");
-                    setTokenOutCustom("");
+                    dispatch(setTokenOutMode("select"));
+                    dispatch(setTokenOut(""));
+                    dispatch(setTokenOutCustom(""));
                   }}
                 >
                   Choose from list
@@ -309,6 +319,7 @@ const PoolSearchBlock: React.FC = () => {
                 color: "#fff",
                 textAlign: "left"
               }}
+              onClick={() => dispatch(setSelectedPool(pool))}
             >
               Pool: {pool.token0.symbol} / {pool.token1.symbol} @ {pool.feeTier}
               <div style={{ fontWeight: 400, fontSize: "0.95em", color: "#aaa" }}>

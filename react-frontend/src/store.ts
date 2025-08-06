@@ -96,11 +96,90 @@ const poolsSlice = createSlice({
 
 export const { setPools, addPool, clearPools } = poolsSlice.actions;
 
+// --- Pool Search UI Slice ---
+interface PoolSearchState {
+  tokenIn: string;
+  tokenInMode: "select" | "custom";
+  tokenInCustom: string;
+  tokenOut: string;
+  tokenOutMode: "select" | "custom";
+  tokenOutCustom: string;
+  selectedPool: PoolInfo | null;
+}
+
+const initialPoolSearchState: PoolSearchState = {
+  tokenIn: "",
+  tokenInMode: "select",
+  tokenInCustom: "",
+  tokenOut: "",
+  tokenOutMode: "select",
+  tokenOutCustom: "",
+  selectedPool: null,
+};
+
+const poolSearchSlice = createSlice({
+  name: "poolSearch",
+  initialState: initialPoolSearchState,
+  reducers: {
+    setTokenIn(state, action: PayloadAction<string>) {
+      state.tokenIn = action.payload;
+    },
+    setTokenInMode(state, action: PayloadAction<"select" | "custom">) {
+      state.tokenInMode = action.payload;
+    },
+    setTokenInCustom(state, action: PayloadAction<string>) {
+      state.tokenInCustom = action.payload;
+    },
+    setTokenOut(state, action: PayloadAction<string>) {
+      state.tokenOut = action.payload;
+    },
+    setTokenOutMode(state, action: PayloadAction<"select" | "custom">) {
+      state.tokenOutMode = action.payload;
+    },
+    setTokenOutCustom(state, action: PayloadAction<string>) {
+      state.tokenOutCustom = action.payload;
+    },
+    setSelectedPool(state, action: PayloadAction<PoolInfo | null>) {
+      state.selectedPool = action.payload;
+    },
+    resetPoolSearch(state) {
+      state.tokenIn = "";
+      state.tokenInMode = "select";
+      state.tokenInCustom = "";
+      state.tokenOut = "";
+      state.tokenOutMode = "select";
+      state.tokenOutCustom = "";
+      state.selectedPool = null;
+    },
+    restorePoolSearch(state, action: PayloadAction<Omit<PoolSearchState, "selectedPool">>) {
+      state.tokenIn = action.payload.tokenIn;
+      state.tokenInMode = action.payload.tokenInMode;
+      state.tokenInCustom = action.payload.tokenInCustom;
+      state.tokenOut = action.payload.tokenOut;
+      state.tokenOutMode = action.payload.tokenOutMode;
+      state.tokenOutCustom = action.payload.tokenOutCustom;
+    }
+  },
+});
+
+export const {
+  setTokenIn,
+  setTokenInMode,
+  setTokenInCustom,
+  setTokenOut,
+  setTokenOutMode,
+  setTokenOutCustom,
+  setSelectedPool,
+  resetPoolSearch,
+  restorePoolSearch,
+} = poolSearchSlice.actions;
+
 export const store = configureStore({
   reducer: {
     wallet: walletSlice.reducer,
     implementedPaths: implementedPathsSlice.reducer,
     pools: poolsSlice.reducer,
+    poolSearch: poolSearchSlice.reducer,
   },
 });
 
