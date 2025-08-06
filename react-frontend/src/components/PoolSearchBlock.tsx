@@ -1,8 +1,7 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useSelector } from "react-redux";
 import { RootState } from "../store";
 import { getChainSettings } from "../config/chainSettings";
-import { useQuery } from "urql";
 
 const POOL_SEARCH_QUERY = `
   query Pools($token0: String!, $token1: String!, $feeTier: Int!) {
@@ -28,44 +27,74 @@ const PoolSearchBlock: React.FC = () => {
   const tokens = chainSettings?.tokens || [];
 
   // Token In
-  const [tokenIn, setTokenIn] = useState("");
-  const [tokenInCustom, setTokenInCustom] = useState("");
-  const [tokenInMode, setTokenInMode] = useState<"select" | "custom">("select");
+  const [token, setToken] = useState("");
+  const [tokenMode, setTokenMode] = useState<"select" | "custom">("select");
+  const [tokenCustom, setTokenCustom] = useState("");
 
   // Token Out
   const [tokenOut, setTokenOut] = useState("");
-  const [tokenOutCustom, setTokenOutCustom] = useState("");
   const [tokenOutMode, setTokenOutMode] = useState<"select" | "custom">("select");
+  const [tokenOutCustom, setTokenOutCustom] = useState("");
 
-  const [fee, setFee] = useState("");
-  const [searchClicked, setSearchClicked] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  // Snapshot pools
+  const [snapshotPools, setSnapshotPools] = useState<any[]>([]);
+  const [filteredSnapshotPools, setFilteredSnapshotPools] = useState<any[]>([]);
+  const [snapshotError, setSnapshotError] = useState<string | null>(null);
 
-  // Use urql to query pools
-  const tokenInAddr = tokenInMode === "custom" ? tokenInCustom : tokenIn;
-  const tokenOutAddr = tokenOutMode === "custom" ? tokenOutCustom : tokenOut;
-  const feeInt = parseInt(fee, 10);
+  // Load pool-snapshot.json on mount
+  useEffect(() => {
+    fetch("/pool-snapshot.json")
+      .then(res => {
+        if (!res.ok) throw new Error("Failed to load snapshot");
+        return res.json();
+      })
+      .then(data => {
+        setSnapshotPools(data);
+        setSnapshotError(null);
+      })
+      .catch((e) => {
+        setSnapshotPools([]);
+        setSnapshotError("Failed to load pool-snapshot.json. Make sure it is in the public/ directory.");
+      });
+  }, []);
 
-  const [result] = useQuery({
-    query: POOL_SEARCH_QUERY,
-    variables: {
-      token0: tokenInAddr,
-      token1: tokenOutAddr,
-      feeTier: feeInt,
-    },
-    pause: !searchClicked || !tokenInAddr || !tokenOutAddr || !fee || isNaN(feeInt),
-  });
-
-  const { data, fetching, error: queryError } = result;
-
-  const handleSearch = () => {
-    setError(null);
-    if (!tokenInAddr || !tokenOutAddr || !fee || isNaN(feeInt)) {
-      setError("Please enter valid token in, token out, and fee.");
+  // Filter snapshot pools as soon as a token is provided
+  // Filter pools by token in and token out
+  useEffect(() => {
+    let addr = "";
+    if (tokenMode === "custom") {
+      addr = tokenCustom.trim().toLowerCase();
+    } else {
+      addr = token.trim().toLowerCase();
+    }
+    if (!addr) {
+      setFilteredSnapshotPools([]);
       return;
     }
-    setSearchClicked(true);
-  };
+    let matches = snapshotPools.filter(pool => {
+      const token0 = (pool.token0?.id || "").toLowerCase().trim();
+      const token1 = (pool.token1?.id || "").toLowerCase().trim();
+      return token0 === addr || token1 === addr;
+    });
+    // If tokenOut is selected, filter further
+    let outAddr = "";
+    if (tokenOutMode === "custom") {
+      outAddr = tokenOutCustom.trim().toLowerCase();
+    } else {
+      outAddr = tokenOut.trim().toLowerCase();
+    }
+    if (outAddr) {
+      matches = matches.filter(pool => {
+        const token0 = (pool.token0?.id || "").toLowerCase().trim();
+        const token1 = (pool.token1?.id || "").toLowerCase().trim();
+        // Only match pools where the other token matches tokenOut
+        if (token0 === addr) return token1 === outAddr;
+        if (token1 === addr) return token0 === outAddr;
+        return false;
+      });
+    }
+    setFilteredSnapshotPools(matches);
+  }, [token, tokenCustom, tokenMode, tokenOut, tokenOutCustom, tokenOutMode, snapshotPools]);
 
   return (
     <div
@@ -90,141 +119,77 @@ const PoolSearchBlock: React.FC = () => {
       <div style={{ fontWeight: 700, fontSize: "1.2em", marginBottom: 8 }}>
         Search for a Pool
       </div>
-      {/* Token In */}
+      {/* Token In Address */}
       <label style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", width: "100%", gap: 4 }}>
         Token In Address
-        {tokenInMode === "select" ? (
+        {tokenMode === "select" ? (
           <>
             <select
-              value={tokenIn}
+              value={token}
               onChange={e => {
                 if (e.target.value === "__custom__") {
-                  setTokenInMode("custom");
-                  setTokenIn("");
+                  setTokenMode("custom");
+                  setToken("");
                 } else {
-                  setTokenIn(e.target.value);
+                  setToken(e.target.value);
                 }
-              }}
-              style={{
-                width: "100%",
-                padding: "0.5em",
-                borderRadius: 4,
-                border: "1px solid #555",
-                background: "#181c24",
-                color: "#fff"
-              }}
-            >
-              <option value="">Select token in</option>
-              {tokens.map(token => (
-                <option key={token.address} value={token.address}>
-                  {token.symbol} ({token.name})
-                </option>
-              ))}
-              <option value="__custom__">Other...</option>
-            </select>
-          </>
-        ) : (
-          <>
-            <input
-              type="text"
-              value={tokenInCustom}
-              onChange={e => setTokenInCustom(e.target.value)}
-              placeholder="0x... (custom token in address)"
-              style={{
-                width: "100%",
-                padding: "0.5em",
-                borderRadius: 4,
-                border: "1px solid #555",
-                background: "#181c24",
-                color: "#fff"
-              }}
-            />
-            <button
-              type="button"
-              style={{
-                marginTop: 4,
-                fontSize: "0.95em",
-                background: "none",
-                color: "#00bcd4",
-                border: "none",
-                cursor: "pointer",
-                textDecoration: "underline"
-              }}
-              onClick={() => {
-                setTokenInMode("select");
-                setTokenIn("");
-                setTokenInCustom("");
-              }}
-            >
-              Choose from list
-            </button>
-          </>
-        )}
-      </label>
-      {/* Token Out */}
-      <label style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", width: "100%", gap: 4 }}>
-        Token Out Address
-        {tokenOutMode === "select" ? (
-          <>
-            <select
-              value={tokenOut}
-              onChange={e => {
-                if (e.target.value === "__custom__") {
-                  setTokenOutMode("custom");
-                  setTokenOut("");
-                } else {
-                  setTokenOut(e.target.value);
-                }
-              }}
-              style={{
-                width: "100%",
-                padding: "0.5em",
-                borderRadius: 4,
-                border: "1px solid #555",
-                background: "#181c24",
-                color: "#fff"
-              }}
-            >
-              <option value="">Select token out</option>
-              {tokens.map(token => (
-                <option key={token.address} value={token.address}>
-                  {token.symbol} ({token.name})
-                </option>
-              ))}
-              <option value="__custom__">Other...</option>
-            </select>
-          </>
-        ) : (
-          <>
-            <input
-              type="text"
-              value={tokenOutCustom}
-              onChange={e => setTokenOutCustom(e.target.value)}
-              placeholder="0x... (custom token out address)"
-              style={{
-                width: "100%",
-                padding: "0.5em",
-                borderRadius: 4,
-                border: "1px solid #555",
-                background: "#181c24",
-                color: "#fff"
-              }}
-            />
-            <button
-              type="button"
-              style={{
-                marginTop: 4,
-                fontSize: "0.95em",
-                background: "none",
-                color: "#00bcd4",
-                border: "none",
-                cursor: "pointer",
-                textDecoration: "underline"
-              }}
-              onClick={() => {
-                setTokenOutMode("select");
+                // Reset token out when token in changes
                 setTokenOut("");
                 setTokenOutCustom("");
+                setTokenOutMode("select");
+              }}
+              style={{
+                width: "100%",
+                padding: "0.5em",
+                borderRadius: 4,
+                border: "1px solid #555",
+                background: "#181c24",
+                color: "#fff"
+              }}
+            >
+              <option value="">Select token</option>
+              {tokens.map(token => (
+                <option key={token.address} value={token.address}>
+                  {token.symbol} ({token.name})
+                </option>
+              ))}
+              <option value="__custom__">Other...</option>
+            </select>
+          </>
+        ) : (
+          <>
+            <input
+              type="text"
+              value={tokenCustom}
+              onChange={e => setTokenCustom(e.target.value)}
+              placeholder="0x... (custom token address)"
+              style={{
+                width: "100%",
+                padding: "0.5em",
+                borderRadius: 4,
+                border: "1px solid #555",
+                background: "#181c24",
+                color: "#fff"
+              }}
+            />
+            <button
+              type="button"
+              style={{
+                marginTop: 4,
+                fontSize: "0.95em",
+                background: "none",
+                color: "#00bcd4",
+                border: "none",
+                cursor: "pointer",
+                textDecoration: "underline"
+              }}
+              onClick={() => {
+                setTokenMode("select");
+                setToken("");
+                setTokenCustom("");
+                setTokenOut("");
+                setTokenOutCustom("");
+                setTokenOutMode("select");
               }}
             >
               Choose from list
@@ -232,60 +197,106 @@ const PoolSearchBlock: React.FC = () => {
           </>
         )}
       </label>
-      {/* Fee */}
-      <label style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", width: "100%", gap: 4 }}>
-        Fee
-        <input
-          type="text"
-          value={fee}
-          onChange={e => setFee(e.target.value)}
-          placeholder="e.g. 3000"
-          style={{
-            width: "100%",
-            padding: "0.5em",
-            borderRadius: 4,
-            border: "1px solid #555",
-            background: "#181c24",
-            color: "#fff"
-          }}
-        />
-      </label>
-      <button
-        onClick={handleSearch}
-        style={{
-          marginTop: 8,
-          padding: "0.7em 1.2em",
-          borderRadius: 6,
-          border: "none",
-          background: "#00bcd4",
-          color: "#fff",
-          fontWeight: 700,
-          fontSize: "1em",
-          cursor: "pointer"
-        }}
-        disabled={fetching}
-      >
-        {fetching ? "Searching..." : "Search"}
-      </button>
-      {error && (
+      {/* Token Out Address (options based on available matches) */}
+      {(token || tokenCustom) && (() => {
+        // Compute available token out options from filtered pools
+        let addr = tokenMode === "custom" ? tokenCustom.trim().toLowerCase() : token.trim().toLowerCase();
+        const outOptions: { id: string, symbol: string, name?: string }[] = [];
+        filteredSnapshotPools.forEach(pool => {
+          const t0 = pool.token0;
+          const t1 = pool.token1;
+          if (t0?.id?.toLowerCase() === addr && !outOptions.some(o => o.id === t1.id)) {
+            outOptions.push({ id: t1.id, symbol: t1.symbol, name: t1.name });
+          }
+          if (t1?.id?.toLowerCase() === addr && !outOptions.some(o => o.id === t0.id)) {
+            outOptions.push({ id: t0.id, symbol: t0.symbol, name: t0.name });
+          }
+        });
+        return (
+          <label style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", width: "100%", gap: 4, marginTop: 8 }}>
+            Token Out Address
+            {tokenOutMode === "select" ? (
+              <>
+                <select
+                  value={tokenOut}
+                  onChange={e => {
+                    if (e.target.value === "__custom__") {
+                      setTokenOutMode("custom");
+                      setTokenOut("");
+                    } else {
+                      setTokenOut(e.target.value);
+                    }
+                  }}
+                  style={{
+                    width: "100%",
+                    padding: "0.5em",
+                    borderRadius: 4,
+                    border: "1px solid #555",
+                    background: "#181c24",
+                    color: "#fff"
+                  }}
+                >
+                  <option value="">Select token out</option>
+                  {outOptions.map(token => (
+                    <option key={token.id} value={token.id}>
+                      {token.symbol}{token.name ? ` (${token.name})` : ""}
+                    </option>
+                  ))}
+                  <option value="__custom__">Other...</option>
+                </select>
+              </>
+            ) : (
+              <>
+                <input
+                  type="text"
+                  value={tokenOutCustom}
+                  onChange={e => setTokenOutCustom(e.target.value)}
+                  placeholder="0x... (custom token out address)"
+                  style={{
+                    width: "100%",
+                    padding: "0.5em",
+                    borderRadius: 4,
+                    border: "1px solid #555",
+                    background: "#181c24",
+                    color: "#fff"
+                  }}
+                />
+                <button
+                  type="button"
+                  style={{
+                    marginTop: 4,
+                    fontSize: "0.95em",
+                    background: "none",
+                    color: "#00bcd4",
+                    border: "none",
+                    cursor: "pointer",
+                    textDecoration: "underline"
+                  }}
+                  onClick={() => {
+                    setTokenOutMode("select");
+                    setTokenOut("");
+                    setTokenOutCustom("");
+                  }}
+                >
+                  Choose from list
+                </button>
+              </>
+            )}
+          </label>
+        );
+      })()}
+      {snapshotError && (
         <div style={{ color: "#ff5252", fontWeight: 500, marginTop: 8 }}>
-          {error}
+          {snapshotError}
         </div>
       )}
-      {queryError && (
-        <div style={{ color: "#ff5252", fontWeight: 500, marginTop: 8 }}>
-          {queryError.message}
-        </div>
-      )}
-      {searchClicked && !fetching && data && data.pools && data.pools.length === 0 && (
-        <div style={{ color: "#aaa", fontWeight: 500, marginTop: 12 }}>
-          No pools found for the given tokens and fee.
-        </div>
-      )}
-      {data && data.pools && data.pools.length > 0 && (
+      {/* Show snapshot pools if any match */}
+      {filteredSnapshotPools.length > 0 && (
         <div style={{ width: "100%", marginTop: 16 }}>
-          <div style={{ fontWeight: 600, marginBottom: 8, color: "#00bcd4" }}>Found Pools:</div>
-          {data.pools.map((pool: any) => (
+          <div style={{ fontWeight: 600, marginBottom: 8, color: "#00bcd4" }}>
+            Snapshot Pools ({filteredSnapshotPools.length}):
+          </div>
+          {filteredSnapshotPools.map((pool: any) => (
             <div
               key={pool.id}
               style={{
@@ -298,7 +309,6 @@ const PoolSearchBlock: React.FC = () => {
                 color: "#fff",
                 textAlign: "left"
               }}
-              // TODO: Add onClick to select pool
             >
               Pool: {pool.token0.symbol} / {pool.token1.symbol} @ {pool.feeTier}
               <div style={{ fontWeight: 400, fontSize: "0.95em", color: "#aaa" }}>
@@ -311,9 +321,11 @@ const PoolSearchBlock: React.FC = () => {
           ))}
         </div>
       )}
-      <div style={{ color: "#aaa", fontWeight: 400, fontSize: "0.95em", marginTop: 12 }}>
-        (Search uses live subgraph data. If no results, check addresses and fee.)
-      </div>
+      {filteredSnapshotPools.length === 0 && !snapshotError && (
+        <div style={{ color: "#aaa", fontWeight: 400, fontSize: "0.95em", marginTop: 12 }}>
+          No pools found for this token.
+        </div>
+      )}
     </div>
   );
 };
