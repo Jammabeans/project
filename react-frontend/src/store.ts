@@ -96,6 +96,51 @@ const poolsSlice = createSlice({
 
 export const { setPools, addPool, clearPools } = poolsSlice.actions;
 
+// --- Pool Swaps Slice ---
+export interface PoolSwap {
+  sender: string;
+  amount0: string;
+  amount1: string;
+  timestamp: string;
+  poolId: string;
+}
+
+interface PoolSwapsState {
+  swapsByPool: { [poolId: string]: PoolSwap[] };
+}
+
+const initialPoolSwapsState: PoolSwapsState = {
+  swapsByPool: {},
+};
+
+const poolSwapsSlice = createSlice({
+  name: "poolSwaps",
+  initialState: initialPoolSwapsState,
+  reducers: {
+    setPoolSwaps(state, action: PayloadAction<{ poolId: string; swaps: PoolSwap[] }>) {
+      state.swapsByPool[action.payload.poolId] = action.payload.swaps;
+    },
+    addOrUpdateSwap(state, action: PayloadAction<{ poolId: string; swap: PoolSwap }>) {
+      const { poolId, swap } = action.payload;
+      if (!state.swapsByPool[poolId]) {
+        state.swapsByPool[poolId] = [swap];
+      } else {
+        const idx = state.swapsByPool[poolId].findIndex(s => s.timestamp === swap.timestamp && s.sender === swap.sender);
+        if (idx !== -1) {
+          state.swapsByPool[poolId][idx] = swap;
+        } else {
+          state.swapsByPool[poolId].unshift(swap);
+        }
+      }
+    },
+    clearPoolSwaps(state, action: PayloadAction<string>) {
+      delete state.swapsByPool[action.payload];
+    }
+  },
+});
+
+export const { setPoolSwaps, addOrUpdateSwap, clearPoolSwaps } = poolSwapsSlice.actions;
+
 // --- Pool Search UI Slice ---
 interface PoolSearchState {
   tokenIn: string;
@@ -180,6 +225,7 @@ export const store = configureStore({
     implementedPaths: implementedPathsSlice.reducer,
     pools: poolsSlice.reducer,
     poolSearch: poolSearchSlice.reducer,
+    poolSwaps: poolSwapsSlice.reducer,
   },
 });
 
