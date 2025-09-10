@@ -1,4 +1,5 @@
 import { configureStore, createSlice, PayloadAction } from '@reduxjs/toolkit';
+import txsReducer from './features/txs/txsSlice';
 
 interface WalletState {
   account: string | null;
@@ -226,6 +227,7 @@ export const store = configureStore({
     pools: poolsSlice.reducer,
     poolSearch: poolSearchSlice.reducer,
     poolSwaps: poolSwapsSlice.reducer,
+    txs: txsReducer,
   },
 });
 

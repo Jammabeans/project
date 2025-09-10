@@ -2,10 +2,11 @@ import React, { useState } from 'react';
 import './App.css';
 import { DndContext, closestCenter, DragOverlay } from '@dnd-kit/core';
 import { arrayMove, SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
-import { useDispatch, useSelector } from 'react-redux';
+import { useSelector } from 'react-redux';
 import type { RootState } from './store';
-import { setAccount, setChainId, addImplementedPath, removeImplementedPath } from './store';
-import { BrowserProvider } from 'ethers';
+import { useWallet } from './hooks';
+import PoolAdmin from './components/PoolAdmin';
+import PoolHooksPanel from './components/PoolHooksPanel';
 
 import SortableBlock from './components/SortableBlock';
 import DraggableHookOption from './components/DraggableHookOption';
@@ -24,32 +25,9 @@ import PoolActionsBlock from './components/PoolActionsBlock';
 import MostLiquidPools from './components/MostLiquidPools';
 import PoolSearchBlock from './components/PoolSearchBlock';
 
-// List of hook entry points
-const HOOK_PATHS = [
-  "beforeInitialize",
-  "afterInitialize",
-  "beforeAddLiquidity",
-  "beforeRemoveLiquidity",
-  "afterAddLiquidity",
-  "afterRemoveLiquidity",
-  "beforeSwap",
-  "afterSwap",
-  "beforeDonate",
-  "afterDonate",
-  "beforeSwapReturnDelta",
-  "afterSwapReturnDelta",
-  "afterAddLiquidityReturnDelta",
-  "afterRemoveLiquidityReturnDelta"
-];
+// Legacy hook paths removed — modern UI uses Commands and Blocks instead (see design/*.md)
 
-// Static placeholder hook options (right panel)
-const HOOK_OPTIONS = [
-  { id: 'mint-points', label: 'Mint points' },
-  { id: 'add-fee', label: 'Add Fee' },
-  { id: 'call-contract', label: 'Call contract' },
-  { id: 'call-contract-value', label: 'Call contract with Value' },
-  { id: 'view-contract', label: 'View contract' },
-];
+// Hook options removed - commands/palette UI lives in Hooks Admin per design
 
 // Helper to generate unique ids for path blocks
 function generateBlockId(typeId: string) {
@@ -57,14 +35,15 @@ function generateBlockId(typeId: string) {
 }
 
 function App() {
-  const account = useSelector((state: RootState) => state.wallet.account);
+  const { connect, disconnect, provider, account, chainId, isConnected } = useWallet();
   const implementedPaths = useSelector((state: RootState) => state.implementedPaths.implementedPaths);
-  const dispatch = useDispatch();
   const [error, setError] = useState<string | null>(null);
 
   // UI state
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
   const [showAllV4Pools, setShowAllV4Pools] = useState<boolean>(false);
+  const [showPoolAdmin, setShowPoolAdmin] = useState<boolean>(false);
+  const [currentPage, setCurrentPage] = useState<string>('Landing');
 
   // Persisted state: blocks per path (now includes value for each block)
   const [pathBlocks, setPathBlocks] = useState<Record<string, { id: string; typeId: string; label: string; value?: any }[]>>({});
@@ -72,35 +51,18 @@ function App() {
   // Drag state
   const [activeDrag, setActiveDrag] = useState<null | { id: string; from: 'options' | 'path'; typeId?: string; label?: string; uniqueId?: string }>(null);
 
-  // Wallet connect logic (unchanged)
+  // Wallet connect logic (moved to useWallet hook)
   const connectWallet = async () => {
     setError(null);
-    if (!(window as any).ethereum) {
-      setError('MetaMask is not installed. Please install it to use this app.');
-      return;
-    }
     try {
-      const provider = new BrowserProvider((window as any).ethereum);
-      const accounts = await provider.send('eth_requestAccounts', []);
-      dispatch(setAccount(accounts[0]));
-      // Get chainId and set in Redux
-      let chainId: number | null = null;
-      if ((window as any).ethereum.chainId) {
-        chainId = parseInt((window as any).ethereum.chainId, 16);
-      } else if ((window as any).ethereum.request) {
-        const hexChainId = await (window as any).ethereum.request({ method: 'eth_chainId' });
-        chainId = parseInt(hexChainId, 16);
-      }
-      if (chainId) {
-        dispatch(setChainId(chainId));
-      }
+      await connect();
     } catch (err: any) {
-      setError(err.message || 'Failed to connect wallet');
+      setError(err?.message || 'Failed to connect wallet');
     }
   };
 
   const logout = () => {
-    dispatch(setAccount(null));
+    disconnect();
   };
 
   // Handler to update value for a block in the edit path
@@ -219,92 +181,81 @@ function App() {
       }
     }
   }
+      {/* Top header with primary page navigation (replaces cluttered left nav when not in legacy mode) */}
+      <header style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '12px 20px', borderBottom: '1px solid #222', background: '#0b0d10' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ width: 36, height: 36, borderRadius: 8, background: '#1976d2' }} />
+          <strong style={{ color: '#fff', fontSize: '1.1rem' }}>Bonded Hooks</strong>
+        </div>
+
+        {/* Primary nav links */}
+        <nav style={{ display: 'flex', gap: 8, marginLeft: 24 }}>
+          {['Landing','Pools','Launch','Bonding','Bidding','DegenPool','PrizeBoxes','GasRebates','Docs','PoolAdmin','HooksAdmin','Account'].map(p => (
+            <button
+              key={p}
+              onClick={() => {
+                // Reset legacy UI flags and switch to the selected top-level page
+                setShowAllV4Pools(false);
+                setShowPoolAdmin(false);
+                setSelectedPath(null);
+                setCurrentPage(p);
+              }}
+              style={{
+                padding: '0.5em 0.8em',
+                background: currentPage === p ? '#1976d2' : 'transparent',
+                color: currentPage === p ? '#fff' : '#cfd6e3',
+                border: '1px solid transparent',
+                borderRadius: 6,
+                cursor: 'pointer',
+                fontSize: '0.95rem'
+              }}
+            >
+              {p}
+            </button>
+          ))}
+        </nav>
+
+        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 12 }}>
+          {account ? (
+            <>
+              <div style={{ color: '#ddd', fontSize: '0.9rem', wordBreak: 'break-all', maxWidth: 320 }}>{account}</div>
+              <button onClick={logout} style={{ padding: '0.45em 0.8em' }}>Logout</button>
+            </>
+          ) : (
+            <button onClick={connectWallet} style={{ padding: '0.45em 0.8em' }}>Connect Wallet</button>
+          )}
+        </div>
+      </header>
 
   return (
     <div style={appContainerStyle}>
-      {/* Left nav */}
+      {/* Left nav (simplified) */}
       <nav style={navStyle}>
-        <h2 style={{ marginBottom: '2rem', fontSize: '1.2rem', letterSpacing: 1 }}>Menu</h2>
-        {account ? (
-          <>
-            <div style={{ wordBreak: 'break-all', fontSize: '0.9em', marginBottom: 16, marginTop: 0 }}>
-              {account}
-            </div>
-            <button onClick={logout} style={{ marginBottom: 24 }}>Logout</button>
-          </>
-        ) : (
-          <button onClick={connectWallet} style={{ marginBottom: 24, marginTop: 0 }}>Connect Wallet</button>
-        )}
-        <div style={{ width: '100%' }}>
-          <button
-            style={{
-              width: '100%',
-              background: showAllV4Pools ? '#4caf50' : '#23283a',
-              color: showAllV4Pools ? '#fff' : '#aaa',
-              border: '1px solid #333',
-              borderRadius: 6,
-              padding: '1.1em 1.2em',
-              fontWeight: 700,
-              fontSize: '1.1rem',
-              cursor: 'pointer',
-              textAlign: 'left',
-              letterSpacing: 0.5,
-              transition: 'background 0.2s, color 0.2s',
-              marginBottom: 16,
-            }}
-            onClick={() => {
-              setShowAllV4Pools(true);
-              setSelectedPath(null);
-            }}
-          >
-            All V4 Pools
-          </button>
-          <h3 style={{ marginBottom: 16, fontSize: '1.25rem' }}>Hook Paths</h3>
-          <ul style={{ listStyle: 'none', padding: 0 }}>
-            {HOOK_PATHS.map(path => (
-              <li key={path} style={{ marginBottom: 16 }}>
-                <button
-                  style={{
-                    width: '100%',
-                    background:
-                      selectedPath === path && !showAllV4Pools
-                        ? '#4caf50' // Green: selected
-                        : implementedPaths.includes(path)
-                        ? '#1976d2' // Blue: implemented
-                        : (pathBlocks[path] && pathBlocks[path].length > 0)
-                        ? '#ff9800' // Orange: staged
-                        : '#23283a', // Black: default
-                    color:
-                      selectedPath === path && !showAllV4Pools
-                        ? '#fff'
-                        : implementedPaths.includes(path)
-                        ? '#fff'
-                        : (pathBlocks[path] && pathBlocks[path].length > 0)
-                        ? '#23283a'
-                        : '#aaa',
-                    border: '1px solid #333',
-                    borderRadius: 6,
-                    padding: '1.1em 1.2em',
-                    fontWeight: 700,
-                    fontSize: '1.1rem',
-                    cursor: 'pointer',
-                    textAlign: 'left',
-                    letterSpacing: 0.5,
-                    transition: 'background 0.2s, color 0.2s',
-                  }}
-                  onClick={() => {
-                    setSelectedPath(path);
-                    setShowAllV4Pools(false);
-                  }}
-                >
-                  {path}
-                </button>
-              </li>
-            ))}
-          </ul>
+        <h2 style={{ marginBottom: '1rem', fontSize: '1.05rem' }}>Menu</h2>
+
+        {/* Account / connect */}
+        <div style={{ marginBottom: 12 }}>
+          {account ? (
+            <>
+              <div style={{ wordBreak: 'break-all', fontSize: '0.85em', marginBottom: 8 }}>{account}</div>
+              <button onClick={logout} style={{ padding: '0.45em', marginBottom: 12 }}>Logout</button>
+            </>
+          ) : (
+            <button onClick={connectWallet} style={{ padding: '0.45em', marginBottom: 12 }}>Connect Wallet</button>
+          )}
         </div>
+
+        {/* Quick links to new top-level pages */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <button onClick={() => setCurrentPage('Landing')} style={{ padding: '0.6em', background: currentPage === 'Landing' ? '#1976d2' : '#23283a', color: '#fff', borderRadius: 6 }}>Landing</button>
+          <button onClick={() => { setCurrentPage('Pools'); setShowAllV4Pools(true); }} style={{ padding: '0.6em', background: currentPage === 'Pools' ? '#1976d2' : '#23283a', color: '#fff', borderRadius: 6 }}>Pools</button>
+          <button onClick={() => { setCurrentPage('PoolAdmin'); setShowPoolAdmin(true); }} style={{ padding: '0.6em', background: currentPage === 'PoolAdmin' ? '#1976d2' : '#23283a', color: '#fff', borderRadius: 6 }}>Pool Admin</button>
+          <button onClick={() => setCurrentPage('HooksAdmin')} style={{ padding: '0.6em', background: currentPage === 'HooksAdmin' ? '#1976d2' : '#23283a', color: '#fff', borderRadius: 6 }}>Hooks Admin</button>
+          <button onClick={() => setCurrentPage('Account')} style={{ padding: '0.6em', background: currentPage === 'Account' ? '#1976d2' : '#23283a', color: '#fff', borderRadius: 6 }}>Account</button>
+        </div>
+
         <div style={{ marginTop: 'auto', fontSize: '0.8em', color: '#aaa' }}>
-          Hooks Master Control
+          Bonded Hooks
         </div>
       </nav>
 
@@ -316,35 +267,41 @@ function App() {
         onDragEnd={handleDragEnd}
       >
         <main style={mainStyle}>
-          {/* Center: Path editor + trash */}
+          {/* Center: Path editor + trash or Admin */}
           <div style={centerColumnStyle}>
-            <div style={pathEditorStyle}>
-              {showAllV4Pools ? (
-                <>
-                  <PoolSearchBlock />
-                  <PoolActionsBlock />
-                </>
-              ) : (
-                <>
-                  <h3 style={{ marginBottom: 22, fontSize: '1.2rem' }}>
-                    {selectedPath ? `Edit Path: ${selectedPath}` : 'Select a Hook Path'}
-                  </h3>
-                  {selectedPath && (
-                    <>
-                      <SortableContext
-                        items={(pathBlocks[selectedPath] || []).map(b => b.id)}
-                        strategy={verticalListSortingStrategy}
-                      >
-                        <PathDropzone
-                          pathBlocks={pathBlocks[selectedPath] || []}
-                          onBlockChange={handleBlockChange}
-                        />
-                      </SortableContext>
-                    </>
-                  )}
-                </>
-              )}
-            </div>
+            {showPoolAdmin ? (
+              <div style={{ width: '100%' }}>
+                <PoolAdmin />
+              </div>
+            ) : (
+              <div style={pathEditorStyle}>
+                {showAllV4Pools ? (
+                  <>
+                    <PoolSearchBlock />
+                    <PoolActionsBlock />
+                  </>
+                ) : (
+                  <>
+                    <h3 style={{ marginBottom: 22, fontSize: '1.2rem' }}>
+                      {selectedPath ? `Edit Path: ${selectedPath}` : 'Select a Hook Path'}
+                    </h3>
+                    {selectedPath && (
+                      <>
+                        <SortableContext
+                          items={(pathBlocks[selectedPath] || []).map(b => b.id)}
+                          strategy={verticalListSortingStrategy}
+                        >
+                          <PathDropzone
+                            pathBlocks={pathBlocks[selectedPath] || []}
+                            onBlockChange={handleBlockChange}
+                          />
+                        </SortableContext>
+                      </>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
             {/* Trash dropzone is now below the scrollable path area */}
             <div style={{ width: '100%', marginTop: 12 }}>
               <TrashDropzone isActive={!!activeDrag} />
@@ -352,15 +309,17 @@ function App() {
           </div>
           {/* Right: Hook options */}
           <div style={rightPanelStyle}>
+            {/* Contextual right panel: show pool lists or Commands palette placeholder */}
             {showAllV4Pools ? (
               <MostLiquidPools />
             ) : (
               <>
-                <h3 style={{ marginBottom: 22, fontSize: '1.15rem' }}>Available Hooks</h3>
-                <div>
-                  {HOOK_OPTIONS.map(opt => (
-                    <DraggableHookOption key={opt.id} typeId={opt.id} label={opt.label} />
-                  ))}
+                <h3 style={{ marginBottom: 12, fontSize: '1.05rem', color: '#fff' }}>Commands</h3>
+                <div style={{ color: '#bbb' }}>
+                  Commands palette and Blocks marketplace will appear here. Use the Hooks Admin or Pool Admin pages to view/manipulate commands.
+                </div>
+                <div style={{ marginTop: 12 }}>
+                  <button onClick={() => setCurrentPage('HooksAdmin')} style={{ padding: '0.5em', background: '#1976d2', color: '#fff', borderRadius: 6 }}>Open Hooks Admin</button>
                 </div>
               </>
             )}
@@ -372,6 +331,15 @@ function App() {
         </DragOverlay>
       </DndContext>
       {error && <p style={{ color: 'red', marginTop: 24 }}>{error}</p>}
+  
+      {/* Development test component: PoolDetailsTest */}
+      <div style={{ position: 'fixed', right: 20, bottom: 20, zIndex: 50 }}>
+        {/* lazy-load the test component to avoid production usage */}
+        {process.env.NODE_ENV !== 'production' && (
+          // eslint-disable-next-line @typescript-eslint/no-var-requires
+          React.createElement(require('./components/PoolDetailsTest').default)
+        )}
+      </div>
     </div>
   );
 }

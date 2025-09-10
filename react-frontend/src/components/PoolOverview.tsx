@@ -1,5 +1,6 @@
 import React, { useState } from "react";
-import { getChainSettings, CHAIN_SETTINGS } from "../config/chainSettings";
+import { CHAIN_SETTINGS } from "../config/chainSettings";
+import { usePools, useChainSettings, usePoolDetails, usePoolSwaps } from "../hooks";
 
 const DEFAULT_CHAIN_ID = Number(process.env.REACT_APP_DEFAULT_CHAIN_ID) || 1;
 const ALL_CHAINS = Object.values(CHAIN_SETTINGS);
@@ -7,29 +8,23 @@ const ALL_CHAINS = Object.values(CHAIN_SETTINGS);
 const PoolOverview: React.FC = () => {
   const [chainId, setChainId] = useState<number>(DEFAULT_CHAIN_ID);
   const [poolAddress, setPoolAddress] = useState<string>("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [poolData, setPoolData] = useState<any>(null);
 
-  const handleFetch = async () => {
-    setError(null);
-    setLoading(true);
-    setPoolData(null);
-    // Placeholder: Here you will add logic to fetch pool data using the v4 SDK, ethers, multicall, etc.
-    // For now, just simulate a fetch.
-    setTimeout(() => {
-      setPoolData({
-        address: poolAddress,
-        token0: "[token0]",
-        token1: "[token1]",
-        fee: "[fee]",
-        other: "Other metadata...",
-      });
-      setLoading(false);
-    }, 1200);
-  };
+  // Snapshot list for quick discovery
+  const { pools, loading: snapshotLoading, error: snapshotError, refetch } = usePools({ first: 50, pollIntervalMs: null });
+  const chainSettings = useChainSettings(chainId);
 
-  const chainSettings = getChainSettings(chainId);
+  // Exact on-chain details when a pool address is entered
+  const { data: poolDetails, loading: detailsLoading, error: detailsError, refetch: refetchDetails } =
+    usePoolDetails(poolAddress || null, { pollIntervalMs: null });
+
+  const loading = snapshotLoading || detailsLoading;
+  const error = detailsError ?? snapshotError;
+
+  // If we have on-chain details prefer them; otherwise fall back to snapshot match
+  const _pd: any = poolDetails as any;
+  const matchedPool = poolDetails
+    ? { id: _pd.address, token0: _pd.token0 ?? { symbol: '', address: _pd.token0?.address ?? '' }, token1: _pd.token1 ?? { symbol: '', address: _pd.token1?.address ?? '' }, feeTier: _pd.fee ?? 'N/A', liquidity: _pd.liquidity ?? 'N/A' }
+    : (poolAddress ? pools.find(p => p.id.toLowerCase() === poolAddress.toLowerCase()) : null);
 
   return (
     <div style={{ marginBottom: 24 }}>
@@ -60,8 +55,14 @@ const PoolOverview: React.FC = () => {
           />
         </label>
         <button
-          onClick={handleFetch}
-          disabled={!poolAddress || loading}
+          onClick={() => {
+            if (poolAddress) {
+              refetchDetails();
+            } else {
+              refetch();
+            }
+          }}
+          disabled={loading}
           style={{
             marginLeft: 16,
             padding: "0.5em 1.2em",
@@ -74,17 +75,63 @@ const PoolOverview: React.FC = () => {
             opacity: loading ? 0.7 : 1,
           }}
         >
-          {loading ? "Loading..." : "Fetch"}
+          {loading ? "Loading..." : poolAddress ? "Fetch Pool" : "Refresh Pools"}
         </button>
       </div>
+
+      {loading && <div>Loading...</div>}
       {error && <div style={{ color: "red", marginBottom: 8 }}>{error}</div>}
-      {poolData && (
-        <div>
-          <p>Pool address: <span style={{ color: "#888" }}>{poolData.address}</span></p>
-          <p>Token 0: <span style={{ color: "#888" }}>{poolData.token0}</span></p>
-          <p>Token 1: <span style={{ color: "#888" }}>{poolData.token1}</span></p>
-          <p>Fee Tier: <span style={{ color: "#888" }}>{poolData.fee}</span></p>
-          <p>{poolData.other}</p>
+
+      {!poolAddress && pools.length > 0 && (
+        <div style={{ marginTop: 8 }}>
+          <h3>Top Pools (snapshot)</h3>
+          <ul style={{ listStyle: 'none', padding: 0 }}>
+            {pools.slice(0, 8).map(p => (
+              <li key={p.id} style={{ marginBottom: 8 }}>
+                <strong>{p.token0.symbol}/{p.token1.symbol}</strong> — {p.liquidity} — <span style={{ color: '#888' }}>{p.id}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {poolAddress && !matchedPool && !loading && (
+        <div style={{ color: "#aaa", marginTop: 8 }}>
+          No pool data found. Try "Fetch Pool" to perform an on-chain read.
+        </div>
+      )}
+
+      {matchedPool && (
+        <div style={{ marginTop: 12 }}>
+          <p>
+            Pool address: <span style={{ color: "#888" }}>{matchedPool.id}</span>
+          </p>
+          <p>
+            Token 0:{" "}
+            <span style={{ color: "#888" }}>
+              {((matchedPool.token0 as any)?.symbol) ?? ((matchedPool.token0 as any)?.address) ?? ((matchedPool.token0 as any)?.id) ?? ''}
+              {" "}
+              <span style={{ color: "#666", fontSize: '0.9em' }}>
+                ({((matchedPool.token0 as any)?.address) ?? ((matchedPool.token0 as any)?.id) ?? ''})
+              </span>
+            </span>
+          </p>
+          <p>
+            Token 1:{" "}
+            <span style={{ color: "#888" }}>
+              {((matchedPool.token1 as any)?.symbol) ?? ((matchedPool.token1 as any)?.address) ?? ((matchedPool.token1 as any)?.id) ?? ''}
+              {" "}
+              <span style={{ color: "#666", fontSize: '0.9em' }}>
+                ({((matchedPool.token1 as any)?.address) ?? ((matchedPool.token1 as any)?.id) ?? ''})
+              </span>
+            </span>
+          </p>
+          <p>
+            Fee Tier: <span style={{ color: "#888" }}>{matchedPool.feeTier}</span>
+          </p>
+          <p>
+            Liquidity: <span style={{ color: "#888" }}>{matchedPool.liquidity}</span>
+          </p>
         </div>
       )}
     </div>
