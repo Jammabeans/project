@@ -4,6 +4,7 @@ import { useDispatch } from 'react-redux';
 import { addTx, setTxHash, setTxSuccess, setTxFailed } from '../features/txs/txsSlice';
 import HooksDryRunPanel from './HooksDryRunPanel';
 import TxModal from './TxModal';
+import { humanizeSelector } from '../utils/selectorHumanizer';
 
 /**
  * PoolHooksPanel (read-only)
@@ -37,16 +38,19 @@ const PoolHooksPanel: React.FC = () => {
   const [submittedPool, setSubmittedPool] = useState<string | number | null>(null);
   const [submittedHookPath, setSubmittedHookPath] = useState<string | null>(null);
 
+  // pass connected provider from wallet into on-chain read hooks so reads start only after connect
+  const { provider } = useWallet();
+
   // Hook expects poolId (number|string|null) and hookPath (string|null)
   const { commands, targets, locks, loading, error, refetch } = usePoolHooks(
     submittedPool,
     submittedHookPath ?? null,
-    { pollIntervalMs: null }
+    { provider: provider ?? undefined, pollIntervalMs: null }
   );
-
+ 
   // Fetch COMMAND_FEE_BIPS for known targets (optional; some targets may not expose it)
   const { fees: targetFees, loading: feesLoading, error: feesError, refetch: refetchFees } =
-    useCommandFees(targets ?? null);
+    useCommandFees(targets ?? null, { provider: provider ?? undefined });
 
   const onFetch = () => {
     // prefer numeric id if the user entered a number, else pass as string/hex
@@ -55,6 +59,26 @@ const PoolHooksPanel: React.FC = () => {
     setSubmittedPool(numeric ? Number(trimmed) : (trimmed || null));
     setSubmittedHookPath(hookPathInput.trim() || null);
   };
+
+  // When a provider becomes available, automatically fetch if we have a poolInput
+  // or re-fetch if a pool has already been submitted. This allows automatic reads
+  // after wallet connect without requiring the user to click Refresh.
+  React.useEffect(() => {
+    if (!provider) return;
+    // if user already submitted a pool, just refresh the current view
+    if (submittedPool) {
+      try {
+        refetch();
+      } catch {
+        // ignore
+      }
+      return;
+    }
+    // otherwise, if there's a pool id typed in, auto-submit it so reads begin
+    if (poolInput && poolInput.trim().length > 0) {
+      onFetch();
+    }
+  }, [provider]); // intentionally only depend on provider to avoid loops
 
   return (
     <div style={PanelContainer}>
@@ -132,7 +156,7 @@ const PoolHooksPanel: React.FC = () => {
                   <tr key={key}>
                     <td style={Td}>{i + 1}</td>
                     <td style={Td}><code style={{ color: '#9ad' }}>{c.target}</code></td>
-                    <td style={Td}><code>{String(c.selector)}</code></td>
+                    <td style={Td}><code>{humanizeSelector(String(c.selector))}</code></td>
                     <td style={Td}>{String(c.callType)}</td>
                     <td style={Td}>{String(c.feeBips)}</td>
                     <td style={Td}>{String(c.provenanceBlockId ?? '')}</td>

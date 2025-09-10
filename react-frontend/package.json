@@ -16,6 +16,7 @@
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@uniswap/v4-sdk": "^1.21.4",
+    "cross-env": "^7.0.3",
     "ethers": "^6.15.0",
     "graphql": "^16.11.0",
     "node-fetch": "^2.7.0",
@@ -28,7 +29,7 @@
     "web-vitals": "^2.1.0"
   },
   "scripts": {
-    "start": "react-scripts start",
+    "start": "cross-env CHOKIDAR_USEPOLLING=true react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject"

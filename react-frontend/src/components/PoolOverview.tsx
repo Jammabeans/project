@@ -5,9 +5,9 @@ import { usePools, useChainSettings, usePoolDetails, usePoolSwaps } from "../hoo
 const DEFAULT_CHAIN_ID = Number(process.env.REACT_APP_DEFAULT_CHAIN_ID) || 1;
 const ALL_CHAINS = Object.values(CHAIN_SETTINGS);
 
-const PoolOverview: React.FC = () => {
+const PoolOverview: React.FC<{ initialPoolAddress?: string | null }> = ({ initialPoolAddress = null }) => {
   const [chainId, setChainId] = useState<number>(DEFAULT_CHAIN_ID);
-  const [poolAddress, setPoolAddress] = useState<string>("");
+  const [poolAddress, setPoolAddress] = useState<string>(initialPoolAddress ? String(initialPoolAddress) : "");
 
   // Snapshot list for quick discovery
   const { pools, loading: snapshotLoading, error: snapshotError, refetch } = usePools({ first: 50, pollIntervalMs: null });
@@ -106,32 +106,52 @@ const PoolOverview: React.FC = () => {
           <p>
             Pool address: <span style={{ color: "#888" }}>{matchedPool.id}</span>
           </p>
-          <p>
-            Token 0:{" "}
-            <span style={{ color: "#888" }}>
-              {((matchedPool.token0 as any)?.symbol) ?? ((matchedPool.token0 as any)?.address) ?? ((matchedPool.token0 as any)?.id) ?? ''}
-              {" "}
-              <span style={{ color: "#666", fontSize: '0.9em' }}>
-                ({((matchedPool.token0 as any)?.address) ?? ((matchedPool.token0 as any)?.id) ?? ''})
-              </span>
-            </span>
-          </p>
-          <p>
-            Token 1:{" "}
-            <span style={{ color: "#888" }}>
-              {((matchedPool.token1 as any)?.symbol) ?? ((matchedPool.token1 as any)?.address) ?? ((matchedPool.token1 as any)?.id) ?? ''}
-              {" "}
-              <span style={{ color: "#666", fontSize: '0.9em' }}>
-                ({((matchedPool.token1 as any)?.address) ?? ((matchedPool.token1 as any)?.id) ?? ''})
-              </span>
-            </span>
-          </p>
-          <p>
-            Fee Tier: <span style={{ color: "#888" }}>{matchedPool.feeTier}</span>
-          </p>
-          <p>
-            Liquidity: <span style={{ color: "#888" }}>{matchedPool.liquidity}</span>
-          </p>
+
+          {/* Render PoolHeader and PoolStats */}
+          {/* eslint-disable-next-line @typescript-eslint/no-var-requires */}
+          {React.createElement(require('./PoolHeader').default, { pool: matchedPool })}
+
+          <div style={{ display: 'flex', gap: 12, marginTop: 8 }}>
+            {/* eslint-disable-next-line @typescript-eslint/no-var-requires */}
+            {React.createElement(require('./PoolStatsCard').default, {
+              tvl: matchedPool.liquidity,
+              feeTier: matchedPool.feeTier,
+              volume24h: '—',
+              hookCount: '—',
+            })}
+            <div style={{ flex: 1 }}>
+              <h4 style={{ margin: 0, color: '#ddd' }}>Overview</h4>
+              <div style={{ marginTop: 8 }}>
+                <p style={{ margin: 0 }}>
+                  Token 0: <span style={{ color: '#888' }}>{((matchedPool.token0 as any)?.symbol) ?? ((matchedPool.token0 as any)?.address) ?? ''}</span>
+                </p>
+                <p style={{ margin: 0 }}>
+                  Token 1: <span style={{ color: '#888' }}>{((matchedPool.token1 as any)?.symbol) ?? ((matchedPool.token1 as any)?.address) ?? ''}</span>
+                </p>
+                <p style={{ margin: 0 }}>
+                  Pool id: <code style={{ color: '#9ad' }}>{matchedPool.id}</code>
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Hooks read-only panel */}
+          <div style={{ marginTop: 12 }}>
+            {/* eslint-disable-next-line @typescript-eslint/no-var-requires */}
+            {React.createElement(require('./PoolHooksPanelReadOnly').default, { poolId: matchedPool.id })}
+          </div>
+        </div>
+      )}
+
+      {/* Trade widget preview */}
+      {matchedPool && (
+        <div style={{ marginTop: 12 }}>
+          {/* eslint-disable-next-line @typescript-eslint/no-var-requires */}
+          {React.createElement(require('./TradeWidget').default, {
+            poolId: matchedPool.id,
+            token0Label: ((matchedPool.token0 as any)?.symbol) ?? 'Token0',
+            token1Label: ((matchedPool.token1 as any)?.symbol) ?? 'Token1',
+          })}
         </div>
       )}
     </div>

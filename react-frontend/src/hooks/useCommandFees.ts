@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { BrowserProvider, Contract } from 'ethers';
 
 /**
@@ -21,7 +21,9 @@ export default function useCommandFees(targets?: string[] | null, opts?: Options
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const provider = opts?.provider ?? ((window as any).ethereum ? new BrowserProvider((window as any).ethereum) : null);
+  // Only use an explicitly provided provider. Do NOT auto-create a BrowserProvider from
+  // window.ethereum here to avoid prompting/triggering reads before the user connects.
+  const provider = useMemo(() => opts?.provider ?? null, [opts?.provider]);
   const pollInterval = opts?.pollIntervalMs ?? null;
 
   const fetchFees = useCallback(async () => {
@@ -58,16 +60,24 @@ export default function useCommandFees(targets?: string[] | null, opts?: Options
 
   useEffect(() => {
     let timer: any = null;
-    if (targets && targets.length > 0) {
+    // Only attempt to fetch if we have targets and a provider available.
+    if (targets && targets.length > 0 && provider) {
+      // initial fetch
       fetchFees();
+      // optional polling (disabled by default)
       if (pollInterval && pollInterval > 0) {
         timer = setInterval(fetchFees, pollInterval);
       }
+    } else {
+      // ensure we don't repeatedly throw errors when no provider is present:
+      setFees(null);
+      setLoading(false);
+      setError(null);
     }
     return () => {
       if (timer) clearInterval(timer);
     };
-  }, [targets, fetchFees, pollInterval]);
+  }, [targets, fetchFees, pollInterval, provider]);
 
   return { fees, loading, error, refetch: fetchFees } as const;
 }

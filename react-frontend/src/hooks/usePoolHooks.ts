@@ -32,7 +32,10 @@ export default function usePoolHooks(poolId?: number | string | null, hookPath?:
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const provider = opts?.provider ?? ((window as any).ethereum ? new BrowserProvider((window as any).ethereum) : null);
+  // Only use an explicitly provided provider. Do NOT auto-create a BrowserProvider from
+  // window.ethereum to avoid repeated re-creation which causes effects to re-run in a loop.
+  // Callers should pass a provider via opts if they want on-chain reads.
+  const provider = opts?.provider ?? null;
   const pollInterval = opts?.pollIntervalMs ?? null;
 
   const fetchOne = useCallback(async (pId?: number | string | null, hp?: string | null) => {
@@ -41,12 +44,21 @@ export default function usePoolHooks(poolId?: number | string | null, hookPath?:
     setError(null);
 
     try {
-      if (!provider) throw new Error('No provider available (connect wallet or pass provider).');
+      // If no provider was supplied, skip on-chain reads gracefully rather than throwing.
+      // The UI will remain usable in read-only/dry-run mode without a connected wallet.
+      if (!provider) {
+        setCommands(null);
+        setTargets(null);
+        return null;
+      }
 
       // MasterControl address should be set in env for on-chain reads
       const masterControlAddress = process.env.REACT_APP_MASTER_CONTROL_ADDRESS;
       if (!masterControlAddress) {
-        throw new Error('REACT_APP_MASTER_CONTROL_ADDRESS is not set');
+        // If masterControlAddress not set, don't throw — return null and keep UI stable.
+        setCommands(null);
+        setTargets(null);
+        return null;
       }
 
       const mc = new Contract(masterControlAddress, MASTERC_CONTROL_ABI, provider);
