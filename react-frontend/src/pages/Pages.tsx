@@ -6,6 +6,8 @@ import HooksEditor from '../components/HooksEditor';
 import AccountPage from '../components/AccountPage';
 import LaunchComponent from '../components/LaunchPage';
 import BondingComponent from '../components/BondingPage';
+import BiddingComponent from '../components/BiddingPage';
+import PoolsList from '../components/PoolsList';
 
 /**
  * Centralized page skeletons to bootstrap routing quickly.
@@ -27,7 +29,6 @@ export const LandingPage: React.FC = () => (
   </div>
 );
 
-import PoolsList from '../components/PoolsList';
 
 export const PoolsPage: React.FC = () => (
   <div style={{ padding: 20 }}>
@@ -37,7 +38,7 @@ export const PoolsPage: React.FC = () => (
 );
 
 export const PoolDetailPage: React.FC = () => {
-  const params = useParams();
+  const params = useParams<{ id?: string }>();
   const id = params?.id ?? null;
   return (
     <div style={{ padding: 20 }}>
@@ -74,19 +75,12 @@ export const HooksAdminPage: React.FC = () => {
 
 export const BondingPage: React.FC = BondingComponent;
 
-export const BiddingPage: React.FC = () => (
-  <div style={{ padding: 20 }}>
-    <h1>Bidding</h1>
-    <p>Bid UI and epoch flows (placeholder)</p>
-  </div>
-);
+export const BiddingPage: React.FC = BiddingComponent;
 
-export const DegenPage: React.FC = () => (
-  <div style={{ padding: 20 }}>
-    <h1>Degen Pool</h1>
-    <p>Leaderboard, join/claim flows (placeholder)</p>
-  </div>
-);
+export const DegenPage: React.FC = () => {
+  const DegenComponent = require('../components/DegenPage').default;
+  return <DegenComponent />;
+};
 
 export const LaunchPage: React.FC = LaunchComponent;
 

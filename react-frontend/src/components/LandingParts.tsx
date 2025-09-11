@@ -26,7 +26,7 @@ export const LandingHero: React.FC = () => {
             <p style={{ color: '#cfd6e3', marginTop: 12, maxWidth: 720 }}>
               Compose, preview, and safely deploy hook-based command sets that route fees, mint points, and integrate with bonding, bidding and on-chain games.
             </p>
-            <div style={{ marginTop: 18, display: 'flex', gap: 12', flexWrap: 'wrap' }}>
+            <div style={{ marginTop: 18, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
               <Link to="/launch"><button style={{ padding: '0.6em 1em', background: '#1976d2', color: '#fff', borderRadius: 6 }}>Create a Pool</button></Link>
               <Link to="/pools"><button style={{ padding: '0.6em 1em', background: '#333', color: '#fff', borderRadius: 6 }}>Browse Pools</button></Link>
               <Link to="/hooks-admin"><button style={{ padding: '0.6em 1em', background: '#2e7d32', color: '#fff', borderRadius: 6 }}>Hooks Admin</button></Link>
