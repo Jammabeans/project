@@ -3,6 +3,9 @@ import { Link, useParams } from 'react-router-dom';
 import PoolOverview from '../components/PoolOverview';
 import LandingParts from '../components/LandingParts';
 import HooksEditor from '../components/HooksEditor';
+import AccountPage from '../components/AccountPage';
+import LaunchComponent from '../components/LaunchPage';
+import BondingComponent from '../components/BondingPage';
 
 /**
  * Centralized page skeletons to bootstrap routing quickly.
@@ -67,19 +70,9 @@ export const HooksAdminPage: React.FC = () => {
   );
 };
 
-export const AccountPage: React.FC = () => (
-  <div style={{ padding: 20 }}>
-    <h1>Account</h1>
-    <p>User balances, bonds, bids, prize boxes, claims (placeholder)</p>
-  </div>
-);
+/* Account page implemented in components/AccountPage.tsx */
 
-export const BondingPage: React.FC = () => (
-  <div style={{ padding: 20 }}>
-    <h1>Bonding</h1>
-    <p>Bonding marketplace and actions (placeholder)</p>
-  </div>
-);
+export const BondingPage: React.FC = BondingComponent;
 
 export const BiddingPage: React.FC = () => (
   <div style={{ padding: 20 }}>
@@ -95,12 +88,7 @@ export const DegenPage: React.FC = () => (
   </div>
 );
 
-export const LaunchPage: React.FC = () => (
-  <div style={{ padding: 20 }}>
-    <h1>Launch</h1>
-    <p>Create a pool / PoolLaunchPad (placeholder)</p>
-  </div>
-);
+export const LaunchPage: React.FC = LaunchComponent;
 
 export const PrizeBoxPage: React.FC = () => (
   <div style={{ padding: 20 }}>
