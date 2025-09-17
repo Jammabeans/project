@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { BrowserProvider, Contract } from 'ethers';
+import useContracts from './useContracts';
+import { getChainSettings } from '../config/chainSettings';
 
 /**
  * usePoolDetails
@@ -53,14 +55,21 @@ export default function usePoolDetails(poolAddress?: string | null, opts?: Optio
 
   const provider = opts?.provider ?? ((window as any).ethereum ? new BrowserProvider((window as any).ethereum) : null);
   const pollInterval = opts?.pollIntervalMs ?? null;
-
+  // Read resolved addresses at top-level so React Hooks rules are satisfied
+  const { resolvedAddresses } = useContracts(provider ?? null);
+  
   const fetchOne = useCallback(async (addr?: string | null) => {
-    if (!addr) return null;
+    // Allow a default pool address from env / resolver / chainSettings when none provided.
+    const defaultPoolAddress = process.env.REACT_APP_POOL_ADDRESS
+      ?? resolvedAddresses?.poolManagerAddress
+      ?? getChainSettings(31337)?.poolManagerAddress;
+    const addrToUse = addr ?? defaultPoolAddress;
+    if (!addrToUse) return null;
     setLoading(true);
     setError(null);
     try {
       if (!provider) throw new Error('No provider available (connect wallet or pass a provider).');
-      const pool = new Contract(addr, POOL_ABI, provider);
+      const pool = new Contract(addrToUse, POOL_ABI, provider);
 
       // Attempt calls in parallel, but tolerate missing methods via try/catch per call
       const results: any = { address: addr };
@@ -139,7 +148,7 @@ export default function usePoolDetails(poolAddress?: string | null, opts?: Optio
     } finally {
       setLoading(false);
     }
-  }, [provider]);
+  }, [provider, resolvedAddresses]);
 
   const refetch = useCallback(() => fetchOne(poolAddress), [fetchOne, poolAddress]);
 

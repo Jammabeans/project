@@ -1,0 +1,116 @@
+name: Operator Integration (Anvil + Forge + Operator)
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Install Foundry (forge/anvil)
+        run: |
+          curl -L https://foundry.paradigm.xyz | bash
+          source ~/.bashrc || true
+          foundryup
+
+      - name: Start Anvil (background)
+        env:
+          ANVIL_MNEMONIC: "test test test test test test test test test test test junk"
+        run: |
+          nohup anvil --mnemonic "${ANVIL_MNEMONIC}" -p 8545 > anvil.log 2>&1 &
+          sleep 2
+          echo "Anvil started"
+
+      - name: Install operator dependencies
+        working-directory: ./Bonded-hooks/operator
+        run: npm ci
+
+      - name: Deploy minimal operator contracts with Forge script
+        id: deploy
+        env:
+          ANVIL_PRIVATE_KEY: ${{ secrets.ANVIL_PRIVATE_KEY }}
+        run: |
+          if [ -z "$ANVIL_PRIVATE_KEY" ]; then
+            echo "ANVIL_PRIVATE_KEY not set. Please add it to repository secrets."
+            exit 1
+          fi
+          cd Bonded-hooks
+          echo "Running forge script to deploy operator mocks..."
+          forge script script/DeployOperatorForCI.s.sol:DeployOperatorForCI --rpc-url http://127.0.0.1:8545 --private-key $ANVIL_PRIVATE_KEY --broadcast -vvvv | tee /tmp/forge-deploy-output.txt
+          DEPLOY_JSON=$(tail -n 1 /tmp/forge-deploy-output.txt)
+          echo "deploy-json<<EOF" >> $GITHUB_OUTPUT
+          echo "$DEPLOY_JSON" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Parse deployed addresses
+        id: parse
+        run: |
+          DEPLOY_JSON="${{ steps.deploy.outputs.deploy-json }}"
+          echo "$DEPLOY_JSON" > /tmp/deploy.json
+          MASTER_CONTROL_ADDRESS=$(jq -r '.MasterControl' /tmp/deploy.json)
+          SETTINGS_ADDRESS=$(jq -r '.Settings' /tmp/deploy.json)
+          GAS_REBATE_ADDRESS=$(jq -r '.GasRebate' /tmp/deploy.json)
+          BID_MANAGER_ADDRESS=$(jq -r '.BidManager' /tmp/deploy.json)
+          DEGEN_POOL_ADDRESS=$(jq -r '.DegenPool' /tmp/deploy.json)
+          echo "MASTER_CONTROL_ADDRESS=$MASTER_CONTROL_ADDRESS" >> $GITHUB_ENV
+          echo "SETTINGS_ADDRESS=$SETTINGS_ADDRESS" >> $GITHUB_ENV
+          echo "GAS_REBATE_ADDRESS=$GAS_REBATE_ADDRESS" >> $GITHUB_ENV
+          echo "BID_MANAGER_ADDRESS=$BID_MANAGER_ADDRESS" >> $GITHUB_ENV
+          echo "DEGEN_POOL_ADDRESS=$DEGEN_POOL_ADDRESS" >> $GITHUB_ENV
+
+      - name: Build operator
+        working-directory: ./Bonded-hooks/operator
+        run: npm run build
+
+      - name: Start operator (background)
+        working-directory: ./Bonded-hooks/operator
+        env:
+          RPC_URL: "http://127.0.0.1:8545"
+          PRIVATE_KEY: ${{ secrets.ANVIL_PRIVATE_KEY }}
+          MASTER_CONTROL_ADDRESS: ${{ env.MASTER_CONTROL_ADDRESS }}
+          SETTINGS_ADDRESS: ${{ env.SETTINGS_ADDRESS }}
+          GAS_REBATE_ADDRESS: ${{ env.GAS_REBATE_ADDRESS }}
+          BID_MANAGER_ADDRESS: ${{ env.BID_MANAGER_ADDRESS }}
+          DEGEN_POOL_ADDRESS: ${{ env.DEGEN_POOL_ADDRESS }}
+          CANDIDATE_BIDDERS: ""
+        run: |
+          nohup node dist/DegenAVS.js > operator.log 2>&1 &
+          echo "Operator started"
+          sleep 2
+          tail -n +1 operator.log | sed -n '1,200p'
+
+      - name: Trigger PoolRebateReady event on MockMasterControl
+        env:
+          ANVIL_PRIVATE_KEY: ${{ secrets.ANVIL_PRIVATE_KEY }}
+          MASTER_CONTROL_ADDRESS: ${{ env.MASTER_CONTROL_ADDRESS }}
+        run: |
+          if [ -z "$MASTER_CONTROL_ADDRESS" ] || [ "$MASTER_CONTROL_ADDRESS" = "null" ]; then
+            echo "MASTER_CONTROL_ADDRESS not set, cannot trigger event"
+            exit 1
+          fi
+          cast send --private-key $ANVIL_PRIVATE_KEY $MASTER_CONTROL_ADDRESS "emitPoolRebateReady(address,address,uint256,uint256,uint256)" "0x0000000000000000000000000000000000000001" "0x0000000000000000000000000000000000000002" 1 100 1000000000 --rpc-url http://127.0.0.1:8545
+
+      - name: Wait and capture operator logs
+        run: |
+          sleep 6
+          echo "Operator logs (last 200 lines):"
+          tail -n 200 Bonded-hooks/operator/operator.log || true
+
+      - name: Tear down anvil
+        if: always()
+        run: |
+          pkill -f anvil || true
+          sleep 1

@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { BrowserProvider, Contract } from 'ethers';
+import useContracts from './useContracts';
+import { getChainSettings } from '../config/chainSettings';
 
 /**
  * usePoolHooks
@@ -37,12 +39,15 @@ export default function usePoolHooks(poolId?: number | string | null, hookPath?:
   // Callers should pass a provider via opts if they want on-chain reads.
   const provider = opts?.provider ?? null;
   const pollInterval = opts?.pollIntervalMs ?? null;
-
+  
+  // Pull resolved addresses (resolver + chainSettings fallback) for defaults
+  const { resolvedAddresses } = useContracts(provider ?? null);
+  
   const fetchOne = useCallback(async (pId?: number | string | null, hp?: string | null) => {
     if (!pId) return null;
     setLoading(true);
     setError(null);
-
+  
     try {
       // If no provider was supplied, skip on-chain reads gracefully rather than throwing.
       // The UI will remain usable in read-only/dry-run mode without a connected wallet.
@@ -51,16 +56,19 @@ export default function usePoolHooks(poolId?: number | string | null, hookPath?:
         setTargets(null);
         return null;
       }
-
-      // MasterControl address should be set in env for on-chain reads
-      const masterControlAddress = process.env.REACT_APP_MASTER_CONTROL_ADDRESS;
+  
+      // Prefer explicit env var, then runtime-resolved address, then chainSettings fallback.
+      const masterControlAddress = process.env.REACT_APP_MASTER_CONTROL_ADDRESS
+        ?? resolvedAddresses?.masterControlAddress
+        ?? getChainSettings(31337)?.masterControlAddress;
+  
       if (!masterControlAddress) {
         // If masterControlAddress not set, don't throw — return null and keep UI stable.
         setCommands(null);
         setTargets(null);
         return null;
       }
-
+  
       const mc = new Contract(masterControlAddress, MASTERC_CONTROL_ABI, provider);
 
       // Normalize hookPath into bytes32 if provided
@@ -140,7 +148,7 @@ export default function usePoolHooks(poolId?: number | string | null, hookPath?:
     } finally {
       setLoading(false);
     }
-  }, [provider]);
+  }, [provider, resolvedAddresses]);
 
   const refetch = useCallback(() => fetchOne(poolId, hookPath), [fetchOne, poolId, hookPath]);
 

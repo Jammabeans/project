@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { BrowserProvider, Contract } from 'ethers';
 import { useSelector } from 'react-redux';
 import type { RootState } from '../store';
+import useContracts from './useContracts';
+import { getChainSettings } from '../config/chainSettings';
 
 /**
  * useBonding
@@ -39,36 +41,41 @@ export default function useBonding(target?: string | null, currency?: string | n
   const account = useSelector((s: RootState) => s.wallet.account);
   const provider = opts?.provider ?? ((window as any).ethereum ? new BrowserProvider((window as any).ethereum) : null);
   const pollInterval = opts?.pollIntervalMs ?? null;
+  // Read resolved addresses at top-level so React Hooks rules are satisfied
+  const { resolvedAddresses } = useContracts(provider ?? null);
 
   const [data, setData] = useState<{ bondedAmount?: string; pendingReward?: string; totalBonded?: string } | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const fetchOne = useCallback(async (t?: string | null, c?: string | null) => {
-    if (!t) return null;
+    // allow using an explicit target (t) or fall back to configured bonding address
+    const bondingAddr = t ?? process.env.REACT_APP_BONDING_ADDRESS ?? resolvedAddresses?.bondingAddress ?? getChainSettings(31337)?.bondingAddress;
+    if (!bondingAddr) return null;
+  
     setLoading(true);
     setError(null);
     try {
       if (!provider) throw new Error('No provider available (connect wallet or pass provider).');
-      const bonding = new Contract(t, BONDING_ABI, provider);
-
+      const bonding = new Contract(bondingAddr, BONDING_ABI, provider);
+  
       const out: any = {};
-
+  
       // totalBonded (optional)
       try {
         if (c) {
-          const tb = await bonding.totalBonded(t, c);
+          const tb = await bonding.totalBonded(bondingAddr, c);
           out.totalBonded = tb?.toString?.() ?? String(tb);
         }
       } catch {
         // ignore if not present
       }
-
+  
       if (account && c) {
         try {
           const [bondedAmt, pending] = await Promise.all([
-            bonding.bondedAmount(t, account, c),
-            bonding.pendingReward(t, account, c),
+            bonding.bondedAmount(bondingAddr, account, c),
+            bonding.pendingReward(bondingAddr, account, c),
           ]);
           out.bondedAmount = bondedAmt?.toString?.() ?? String(bondedAmt);
           out.pendingReward = pending?.toString?.() ?? String(pending);
@@ -76,7 +83,7 @@ export default function useBonding(target?: string | null, currency?: string | n
           // ignore per-user failures
         }
       }
-
+  
       setData(out);
       return out;
     } catch (err: any) {

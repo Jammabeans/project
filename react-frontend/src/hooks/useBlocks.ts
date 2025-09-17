@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Contract } from 'ethers';
 import useWallet from './useWallet';
 import { MASTER_CONTROL_ADMIN_ABI } from '../contracts/masterControl';
+import { getChainSettings } from '../config/chainSettings';
 
 /**
  * useBlocks
@@ -101,7 +102,11 @@ export default function useBlocks(masterControlAddress?: string | null) {
   // Best-effort fetch of commands for a specific block id.
   // Returns an array of commands or null if the on-chain view is not available.
   const fetchBlockCommands = useCallback(async (blockId: number | string) => {
-    const addr = masterControlAddress ?? process.env.REACT_APP_MASTER_CONTROL_ADDRESS ?? null;
+    const addr =
+      masterControlAddress ??
+      process.env.REACT_APP_MASTER_CONTROL_ADDRESS ??
+      getChainSettings(31337)?.masterControlAddress ??
+      null;
     if (!provider || !addr) {
       // no provider/address -> cannot fetch on-chain commands
       return null;

@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react';
 import { Contract, BrowserProvider } from 'ethers';
 import useWallet from './useWallet';
 import { MASTER_CONTROL_ADMIN_ABI, wrapAsMasterControlContract, MasterControlContract } from '../contracts/masterControl';
+import { getChainSettings } from '../config/chainSettings';
 
 /**
  * useAdminActions
@@ -25,7 +26,10 @@ export default function useAdminActions() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const masterControlAddress = process.env.REACT_APP_MASTER_CONTROL_ADDRESS;
+  const masterControlAddress =
+    process.env.REACT_APP_MASTER_CONTROL_ADDRESS ??
+    getChainSettings(31337)?.masterControlAddress ??
+    undefined;
 
   const getContract = useCallback((): MasterControlContract => {
     if (!masterControlAddress) throw new Error('REACT_APP_MASTER_CONTROL_ADDRESS not set');

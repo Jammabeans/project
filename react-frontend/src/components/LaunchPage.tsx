@@ -1,6 +1,9 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { useWallet } from '../hooks';
 import TxModal from './TxModal';
+import useLaunchPadActions from '../hooks/useLaunchPadActions';
+import { BrowserProvider } from 'ethers';
+import { getChainSettings } from '../config/chainSettings';
 
 /**
  * LaunchPage
@@ -21,17 +24,37 @@ function validateAddress(a?: string) {
 }
 
 export default function LaunchPage() {
-  const { account, signer } = useWallet();
+  const { account, signer, connect } = useWallet();
 
-  const [tokenA, setTokenA] = useState('');
-  const [tokenB, setTokenB] = useState('');
+  // Mode: choose which launch flow the user wants
+  // - 'new-native' -> create a new ERC20 and init pool with native ETH
+  // - 'supplied-native' -> use an existing token address and init pool with native ETH
+  // - 'token-token' -> token-token pool (not implemented here, simulated)
+  const [mode, setMode] = useState<'new-native' | 'supplied-native' | 'token-token'>('new-native');
+
+  // For supplied-token flows (existing address fields)
+  const [tokenA, setTokenA] = useState(''); // used for supplied token address when mode = supplied-native or token-token
+  const [tokenB, setTokenB] = useState(''); // used for token-token supplied flows
+
+  // For new-token flows (name/symbol/supply)
+  const [tokenName, setTokenName] = useState('');
+  const [tokenSymbol, setTokenSymbol] = useState('');
+  const [tokenSupply, setTokenSupply] = useState('1000000');
+
   const [feeTier, setFeeTier] = useState('3000');
   const [initialLiquidity, setInitialLiquidity] = useState('');
-  const [owner, setOwner] = useState('');
   const [name, setName] = useState('');
   const [opError, setOpError] = useState<string | null>(null);
   const [txOpen, setTxOpen] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
+  // sensible defaults aligned with on-chain tests
+  const DEFAULT_TICK_SPACING = 60;
+  const DEFAULT_SQRT_PRICE_X96 = 0; // leave 0 so hook uses 1<<96
+  const [tickSpacingInput, setTickSpacingInput] = useState(String(DEFAULT_TICK_SPACING));
+  const [sqrtPriceInput, setSqrtPriceInput] = useState(String(DEFAULT_SQRT_PRICE_X96));
+
+  // LaunchPad actions (wrappers for on-chain write calls)
+  const launchpad = useLaunchPadActions();
 
   const feeOptions = useMemo(() => [
     { value: '500', label: '0.05%' },
@@ -41,32 +64,70 @@ export default function LaunchPage() {
 
   const validation = useMemo(() => {
     const errors: string[] = [];
-    if (!validateAddress(tokenA)) errors.push('Token A address is invalid or missing (requires 0x... address).');
-    if (!validateAddress(tokenB)) errors.push('Token B address is invalid or missing (requires 0x... address).');
-    if (tokenA && tokenB && tokenA.toLowerCase() === tokenB.toLowerCase()) errors.push('Token A and Token B must be different.');
-    if (!initialLiquidity || isNaN(Number(initialLiquidity)) || Number(initialLiquidity) <= 0) errors.push('Initial liquidity must be a positive number.');
-    if (!validateAddress(owner) && owner.length > 0) errors.push('Owner address is invalid.');
-    if (!owner) errors.push('Owner address is required (who will receive pool admin privileges).');
+
+    // Mode-specific validation
+    if (mode === 'new-native') {
+      if (!tokenName) errors.push('Token name is required for new-token flow.');
+      if (!tokenSymbol) errors.push('Token symbol is required for new-token flow.');
+      if (!tokenSupply || isNaN(Number(tokenSupply)) || Number(tokenSupply) <= 0) errors.push('Token supply must be a positive number.');
+    }
+
+    if (mode === 'supplied-native') {
+      if (!validateAddress(tokenA)) errors.push('Existing token address is invalid or missing (requires 0x... address).');
+    }
+
+    // initialLiquidity is optional at pool creation (Add LP is a separate step).
     return errors;
-  }, [tokenA, tokenB, initialLiquidity, owner]);
+  }, [mode, tokenA, tokenB, tokenName, tokenSymbol, tokenSupply]);
 
-  const preview = useMemo(() => ({
-    name: name || `${tokenA.slice(0, 6)}... / ${tokenB.slice(0, 6)}...`,
-    tokenA,
-    tokenB,
-    feeTier,
-    initialLiquidity,
-    owner,
-  }), [name, tokenA, tokenB, feeTier, initialLiquidity, owner]);
+  const preview = useMemo(() => {
+    if (mode === 'new-native') {
+      return {
+        name: name || `${tokenName || tokenSymbol} (new) / ETH`,
+        tokenName,
+        tokenSymbol,
+        tokenSupply,
+        feeTier,
+        initialLiquidity,
+      };
+    }
+    if (mode === 'supplied-native') {
+      return {
+        name: name || `${tokenA.slice(0, 6)}... / ETH`,
+        tokenA,
+        feeTier,
+        initialLiquidity,
+      };
+    }
+    return {
+      name: name || `${tokenA.slice(0, 6)}... / ${tokenB.slice(0, 6)}...`,
+      tokenA,
+      tokenB,
+      feeTier,
+      initialLiquidity,
+    };
+  }, [mode, name, tokenA, tokenB, tokenName, tokenSymbol, tokenSupply, feeTier, initialLiquidity]);
 
-  function onAttemptCreate() {
+  async function onAttemptCreate() {
     setOpError(null);
     if (validation.length > 0) {
       setOpError(validation.join(' '));
       return;
     }
+    // Ensure the app has an active signer; if not, attempt to prompt the user to connect
     if (!signer) {
-      setOpError('Connect a wallet / signer before creating a pool.');
+      if (typeof (window as any).ethereum !== 'undefined' && connect) {
+        try {
+          await connect();
+        } catch (err: any) {
+          setOpError('Failed to connect wallet: ' + (err?.message ?? String(err)));
+          return;
+        }
+      }
+    }
+    // final guard: must have at least an account
+    if (!account) {
+      setOpError('Connect a wallet/address before creating a pool.');
       return;
     }
     setTxOpen(true);
@@ -74,35 +135,184 @@ export default function LaunchPage() {
 
   async function handleConfirmCreate() {
     setTxOpen(false);
-    // Placeholder: real create logic will call the PoolFactory / launchpad contract
-    // For now we simulate success after a short delay and show a confirmation UI state.
     try {
-      // simulate async
-      await new Promise((res) => setTimeout(res, 700));
-      setConfirmed(true);
+      // Ensure signer available; try to prompt connect if not.
+      if (!signer && typeof (window as any).ethereum !== 'undefined' && (window as any).ethereum.request) {
+        try {
+          await (window as any).ethereum.request({ method: 'eth_requestAccounts' });
+        } catch {
+          // ignore - will check below
+        }
+      }
+      if (!launchpad) throw new Error('Launchpad actions not available');
+      // Call the appropriate launchpad action depending on mode
+      if (mode === 'new-native') {
+        // createNewTokenAndInitWithNative(name, symbol, supply, fee, tickSpacing, sqrtPriceX96)
+        // hooks (masterControl) is resolved and injected inside the action; do not pass it from UI.
+        const tx = await launchpad.createNewTokenAndInitWithNative({
+          tokenName: tokenName || tokenSymbol,
+          tokenSymbol: tokenSymbol || tokenName,
+          tokenSupply: tokenSupply || '1000000',
+          fee: Number(feeTier),
+          // Use the same defaults as tests / on-chain expectations
+          tickSpacing: 60,
+          // Let the action default to the canonical 1<<96 when passed 0
+          sqrtPriceX96: 0
+        });
+        // wait for confirmation if tx returned
+        if (tx && tx.wait) await tx.wait();
+        setConfirmed(true);
+        return;
+      } else if (mode === 'supplied-native') {
+        const tx = await launchpad.createSuppliedTokenAndInitWithNative({
+          existingTokenAddr: tokenA,
+          fee: Number(feeTier),
+          // use canonical tick spacing used in tests
+          tickSpacing: 60,
+          sqrtPriceX96: 0
+        });
+        if (tx && tx.wait) await tx.wait();
+        setConfirmed(true);
+        return;
+      } else {
+        // token-token and other flows are simulated for now
+        await new Promise((res) => setTimeout(res, 700));
+        setConfirmed(true);
+        return;
+      }
     } catch (err: any) {
       setOpError(err?.message ?? String(err));
     }
   }
 
+  // Debug info for wallet/provider/signature availability
+  const [debug, setDebug] = useState<{ selectedAddress?: string | null; chainId?: string | null; signerAddress?: string | null; network?: any; error?: string | null }>({ selectedAddress: null, chainId: null, signerAddress: null, network: null, error: null });
+  useEffect(() => {
+    (async () => {
+      try {
+        const eth: any = (window as any).ethereum;
+        const selected = eth?.selectedAddress ?? null;
+        const cid = eth?.chainId ?? null;
+        if (!eth) {
+          setDebug(d => ({ ...d, error: 'No injected ethereum provider detected (window.ethereum missing).' }));
+          return;
+        }
+        const p = new BrowserProvider(eth);
+        let signerAddr: string | null = null;
+        try {
+          // BrowserProvider.getSigner() returns a Promise; await it to obtain the signer instance
+          const s = await p.getSigner();
+          signerAddr = await s.getAddress();
+        } catch {
+          signerAddr = null;
+        }
+        let network = null;
+        try {
+          network = await p.getNetwork();
+        } catch {
+          network = null;
+        }
+        setDebug({ selectedAddress: selected, chainId: cid, signerAddress: signerAddr, network, error: null });
+      } catch (e: any) {
+        setDebug(d => ({ ...d, error: e?.message ?? String(e) }));
+      }
+    })();
+  // refresh debug when account/chain changes
+  }, [account]);
+  
   return (
     <div style={container}>
-      <h1>Launch — Create a Pool</h1>
+      <h1 style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <span>Launch — Create a Pool</span>
+        <small style={{ color: '#9ad', fontSize: '0.9rem' }}>{account ? account : 'No wallet connected'}</small>
+      </h1>
+      <div style={{ marginBottom: 12 }}>
+        <div style={{ color: '#bbb', fontSize: '0.9rem' }}>
+          Debug: selectedAddress: <code style={{ color: '#9ad' }}>{debug.selectedAddress ?? '—'}</code> |
+          chainId: <code style={{ color: '#9ad' }}>{debug.chainId ?? '—'}</code> |
+          signer: <code style={{ color: '#9ad' }}>{debug.signerAddress ?? 'no signer'}</code>
+        </div>
+        {debug.error && <div style={{ color: '#ff8b8b' }}>Debug error: {String(debug.error)}</div>}
+      </div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 360px', gap: 20, marginTop: 12 }}>
         <div>
           <div style={panel}>
-            <div style={{ fontWeight: 700, marginBottom: 8 }}>Pool Details</div>
-
-            <div style={formRow}>
-              <div style={{ flex: 1 }}>
-                <div style={{ color: '#bbb', fontSize: '0.9rem' }}>Token A (address)</div>
-                <input value={tokenA} onChange={e => setTokenA(e.target.value)} placeholder="0x..." style={{ width: '100%', padding: 8, borderRadius: 6, border: '1px solid #222', background: '#071018', color: '#eee' }} />
-              </div>
-              <div style={{ flex: 1 }}>
-                <div style={{ color: '#bbb', fontSize: '0.9rem' }}>Token B (address)</div>
-                <input value={tokenB} onChange={e => setTokenB(e.target.value)} placeholder="0x..." style={{ width: '100%', padding: 8, borderRadius: 6, border: '1px solid #222', background: '#071018', color: '#eee' }} />
-              </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+              <div style={{ fontWeight: 700 }}>Pool Details</div>
+              {account ? (
+                <div style={{ color: '#9ad', fontSize: '0.9rem' }}>{account}</div>
+              ) : (
+                <button
+                  onClick={async () => {
+                    setOpError(null);
+                    try {
+                      await connect();
+                    } catch (err: any) {
+                      setOpError(err?.message ?? String(err));
+                    }
+                  }}
+                  style={{ padding: '0.35em 0.6em', background: '#1976d2', color: '#fff', borderRadius: 6 }}
+                >
+                  Connect Wallet
+                </button>
+              )}
             </div>
+
+            {/* Mode selector — show only the fields required for the chosen flow */}
+            <div style={{ display: 'flex', gap: 8, marginBottom: 12, alignItems: 'center' }}>
+              <label style={{ color: mode === 'new-native' ? '#fff' : '#bbb', cursor: 'pointer' }}>
+                <input type="radio" checked={mode === 'new-native'} onChange={() => setMode('new-native')} /> New token + ETH
+              </label>
+              <label style={{ color: mode === 'supplied-native' ? '#fff' : '#bbb', cursor: 'pointer' }}>
+                <input type="radio" checked={mode === 'supplied-native'} onChange={() => setMode('supplied-native')} /> Use existing token + ETH
+              </label>
+              <label style={{ color: mode === 'token-token' ? '#fff' : '#bbb', cursor: 'pointer' }}>
+                <input type="radio" checked={mode === 'token-token'} onChange={() => setMode('token-token')} /> Token + Token
+              </label>
+            </div>
+
+            {/* New token flow: ask only for name/symbol/supply */}
+            {mode === 'new-native' && (
+              <div style={formRow}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ color: '#bbb', fontSize: '0.9rem' }}>Token name</div>
+                  <input value={tokenName} onChange={e => setTokenName(e.target.value)} placeholder="MyToken" style={{ width: '100%', padding: 8, borderRadius: 6, border: '1px solid #222', background: '#071018', color: '#eee' }} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ color: '#bbb', fontSize: '0.9rem' }}>Token symbol</div>
+                  <input value={tokenSymbol} onChange={e => setTokenSymbol(e.target.value)} placeholder="MTK" style={{ width: '100%', padding: 8, borderRadius: 6, border: '1px solid #222', background: '#071018', color: '#eee' }} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ color: '#bbb', fontSize: '0.9rem' }}>Token supply</div>
+                  <input value={tokenSupply} onChange={e => setTokenSupply(e.target.value)} placeholder="1000000" style={{ width: '100%', padding: 8, borderRadius: 6, border: '1px solid #222', background: '#071018', color: '#eee' }} />
+                </div>
+              </div>
+            )}
+
+            {/* Supplied token + ETH: only ask for existing token address */}
+            {mode === 'supplied-native' && (
+              <div style={formRow}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ color: '#bbb', fontSize: '0.9rem' }}>Existing token address</div>
+                  <input value={tokenA} onChange={e => setTokenA(e.target.value)} placeholder="0x..." style={{ width: '100%', padding: 8, borderRadius: 6, border: '1px solid #222', background: '#071018', color: '#eee' }} />
+                </div>
+                <div style={{ flex: 1 }} />
+              </div>
+            )}
+
+            {/* Token-token flow: ask for both token addresses */}
+            {mode === 'token-token' && (
+              <div style={formRow}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ color: '#bbb', fontSize: '0.9rem' }}>Token A (address)</div>
+                  <input value={tokenA} onChange={e => setTokenA(e.target.value)} placeholder="0x..." style={{ width: '100%', padding: 8, borderRadius: 6, border: '1px solid #222', background: '#071018', color: '#eee' }} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ color: '#bbb', fontSize: '0.9rem' }}>Token B (address)</div>
+                  <input value={tokenB} onChange={e => setTokenB(e.target.value)} placeholder="0x..." style={{ width: '100%', padding: 8, borderRadius: 6, border: '1px solid #222', background: '#071018', color: '#eee' }} />
+                </div>
+              </div>
+            )}
 
             <div style={formRow}>
               <div style={{ flex: 1 }}>
@@ -119,10 +329,6 @@ export default function LaunchPage() {
 
             <div style={formRow}>
               <div style={{ flex: 1 }}>
-                <div style={{ color: '#bbb', fontSize: '0.9rem' }}>Owner (admin) address</div>
-                <input value={owner} onChange={e => setOwner(e.target.value)} placeholder={account ?? '0x...'} style={{ width: '100%', padding: 8, borderRadius: 6, border: '1px solid #222', background: '#071018', color: '#eee' }} />
-              </div>
-              <div style={{ flex: 1 }}>
                 <div style={{ color: '#bbb', fontSize: '0.9rem' }}>Friendly name (optional)</div>
                 <input value={name} onChange={e => setName(e.target.value)} placeholder="My Pool" style={{ width: '100%', padding: 8, borderRadius: 6, border: '1px solid #222', background: '#071018', color: '#eee' }} />
               </div>
@@ -130,8 +336,15 @@ export default function LaunchPage() {
 
             <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
               <button onClick={onAttemptCreate} style={{ padding: '0.45em 0.9em', background: '#2e7d32', color: '#fff', borderRadius: 6 }}>Create Pool</button>
-              <button onClick={() => { setTokenA(''); setTokenB(''); setFeeTier('3000'); setInitialLiquidity(''); setOwner(''); setName(''); setOpError(null); setConfirmed(false); }} style={{ padding: '0.45em 0.9em', background: '#333', color: '#fff', borderRadius: 6 }}>Reset</button>
-              <div style={{ marginLeft: 'auto', color: '#999' }}>{confirmed ? <span style={{ color: '#9ad' }}>Pool created (simulated)</span> : null}</div>
+              <button onClick={() => {
+                setMode('new-native');
+                setTokenA(''); setTokenB(''); setTokenName(''); setTokenSymbol(''); setTokenSupply('1000000');
+                setFeeTier('3000'); setInitialLiquidity(''); setName(''); setOpError(null); setConfirmed(false);
+              }} style={{ padding: '0.45em 0.9em', background: '#333', color: '#fff', borderRadius: 6 }}>Reset</button>
+
+              <button onClick={() => { /* placeholder: add LP flow */ }} style={{ padding: '0.45em 0.9em', background: '#1565c0', color: '#fff', borderRadius: 6 }}>Add LP</button>
+
+              <div style={{ marginLeft: 'auto', color: '#999' }}>{confirmed ? <span style={{ color: '#9ad' }}>Pool created</span> : null}</div>
             </div>
 
             {opError && <div style={{ color: '#ff8b8b', marginTop: 8 }}>Error: {opError}</div>}
@@ -162,7 +375,7 @@ export default function LaunchPage() {
       <TxModal
         open={txOpen}
         title="Confirm Create Pool"
-        message={`Create pool: ${preview.name}\nTokenA: ${tokenA}\nTokenB: ${tokenB}\nFee: ${feeTier}\nInitial liquidity: ${initialLiquidity}\nOwner: ${owner}`}
+        message={`Create pool: ${preview.name}\nTokenA: ${tokenA}\nTokenB: ${tokenB}\nFee: ${feeTier}\nInitial liquidity: ${initialLiquidity}`}
         confirmLabel="Create Pool"
         cancelLabel="Cancel"
         onConfirm={handleConfirmCreate}

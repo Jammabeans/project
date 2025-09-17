@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { usePools } from '../hooks';
 import useShaker from '../hooks/useShaker';
+import useLaunchPadPools from '../hooks/useLaunchPadPools';
 
 /**
  * LandingParts
@@ -104,21 +105,21 @@ export const ShakerWidget: React.FC = () => {
 
 /* ---------------- FeaturedPoolsGrid ---------------- */
 export const FeaturedPoolsGrid: React.FC = () => {
-  const { pools = [], loading } = usePools({ first: 12, pollIntervalMs: null } as any);
+  const { poolIds = [], loading } = useLaunchPadPools({ pollIntervalMs: null } as any);
 
   return (
     <section style={{ marginTop: 12 }}>
       <h3 style={{ color: '#fff' }}>Featured Pools</h3>
       {loading && <div style={{ color: '#aaa' }}>Loading pools...</div>}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12, marginTop: 12 }}>
-        {pools.slice(0, 8).map((p: any) => (
-          <Link to={`/pool/${p.id}`} key={p.id} style={{ textDecoration: 'none' }}>
+        {poolIds.slice(0, 8).map((id: any) => (
+          <Link to={`/pool/${id}`} key={id} style={{ textDecoration: 'none' }}>
             <div style={{ padding: 12, borderRadius: 8, background: '#071018', border: '1px solid #23272a', color: '#ddd', transition: 'transform .12s, box-shadow .12s', boxShadow: '0 1px 0 rgba(0,0,0,0.2)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div style={{ fontWeight: 700, color: '#fff' }}>{p.token0?.symbol}/{p.token1?.symbol}</div>
-                <div style={{ color: '#9ad', fontSize: '0.9em' }}>{p.liquidity ?? '—'}</div>
+                <div style={{ fontWeight: 700, color: '#fff' }}>{id}</div>
+                <div style={{ color: '#9ad', fontSize: '0.9em' }}>—</div>
               </div>
-              <div style={{ color: '#bbb', fontSize: '0.85em', marginTop: 6 }}><code style={{ color: '#9ad' }}>{p.id}</code></div>
+              <div style={{ color: '#bbb', fontSize: '0.85em', marginTop: 6 }}><code style={{ color: '#9ad' }}>{id}</code></div>
             </div>
           </Link>
         ))}

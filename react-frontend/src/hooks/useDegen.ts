@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { BrowserProvider, Contract } from 'ethers';
 import type { RootState } from '../store';
 import { useSelector } from 'react-redux';
+import useContracts from './useContracts';
+import { getChainSettings } from '../config/chainSettings';
 
 /**
  * useDegen
@@ -39,14 +41,22 @@ export default function useDegen(poolAddress?: string | null, opts?: Options) {
   const account = useSelector((s: RootState) => s.wallet.account);
   const provider = opts?.provider ?? ((window as any).ethereum ? new BrowserProvider((window as any).ethereum) : null);
   const pollInterval = opts?.pollIntervalMs ?? null;
+  // Read resolved addresses at top-level so React Hooks rules are satisfied
+  const { resolvedAddresses } = useContracts(provider ?? null);
 
   const fetchOne = useCallback(async (addr?: string | null) => {
-    if (!addr) return null;
+    // allow explicit poolAddress or fallback to env / resolver / chainSettings
+    const poolAddr = addr
+      ?? process.env.REACT_APP_DEGEN_POOL_ADDRESS
+      ?? resolvedAddresses?.degenPoolAddress
+      ?? getChainSettings(31337)?.degenPoolAddress;
+    if (!poolAddr) return null;
+  
     setLoading(true);
     setError(null);
     try {
       if (!provider) throw new Error('No provider available (connect wallet or pass a provider).');
-      const pool = new Contract(addr, DEGEN_ABI, provider);
+      const pool = new Contract(poolAddr, DEGEN_ABI, provider);
       const [cumulativeRewardPerPoint, totalPoints] = await Promise.all([
         pool.cumulativeRewardPerPoint(),
         pool.totalPoints(),

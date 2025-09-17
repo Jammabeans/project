@@ -7,6 +7,7 @@ import PoolAdmin from './components/PoolAdmin';
 import PoolHooksPanel from './components/PoolHooksPanel';
 import PoolDetailsTest from './components/PoolDetailsTest';
 import TxTray from './components/TxTray';
+import ResolverTest from './pages/ResolverTest';
 
 /**
  * Simplified App shell wired with react-router routes.
@@ -40,6 +41,7 @@ function App(): JSX.Element {
             <Link to="/hooks-admin" style={{ color: '#cfd6e3', textDecoration: 'none' }}>Hooks Admin</Link>
             <Link to="/pool-admin" style={{ color: '#cfd6e3', textDecoration: 'none' }}>Pool Admin</Link>
             <Link to="/account" style={{ color: '#cfd6e3', textDecoration: 'none' }}>Account</Link>
+            <Link to="/resolver-test" style={{ color: '#f2b90b', textDecoration: 'underline' }}>Resolver Test</Link>
           </nav>
 
           <div style={{ marginLeft: 'auto', display: 'flex', gap: 12, alignItems: 'center' }}>
@@ -73,6 +75,7 @@ function App(): JSX.Element {
             {/* Development/testing routes */}
             <Route path="/dev/pool-hooks" element={<PoolHooksPanel />} />
             <Route path="/dev/pool-details-test" element={<PoolDetailsTest />} />
+            <Route path="/resolver-test" element={<ResolverTest />} />
           </Routes>
         </main>
       </div>
