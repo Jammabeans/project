@@ -117,6 +117,60 @@ export async function fetchAddressesFromAccessControl(
   }
 
   // helper to try a call with a minimal ABI; we create a Contract wrapper per candidate
+  // Fast-path for this repo's AccessControl implementation:
+  //   function getContract(string name) external view returns (address)
+  // If available, this avoids hundreds of probe calls that can overload injected wallets.
+  try {
+    const registry = new Contract(
+      accessControlAddress,
+      ["function getContract(string name) view returns (address)"],
+      provider
+    );
+
+    const entries: Array<{ name: string; key: string }> = [
+      { name: "PoolManager", key: "poolManager" },
+      { name: "AccessControl", key: "accessControl" },
+      { name: "PoolLaunchPad", key: "poolLaunchPad" },
+      { name: "MasterControl", key: "masterControl" },
+      { name: "FeeCollector", key: "feeCollector" },
+      { name: "GasBank", key: "gasBank" },
+      { name: "DegenPool", key: "degenPool" },
+      { name: "Settings", key: "settings" },
+      { name: "ShareSplitter", key: "shareSplitter" },
+      { name: "Bonding", key: "bonding" },
+      { name: "PrizeBox", key: "prizeBox" },
+      { name: "Shaker", key: "shaker" },
+      { name: "PointsCommand", key: "pointsCommand" },
+      { name: "BidManager", key: "bidManager" }
+    ];
+
+    for (const e of entries) {
+      try {
+        const addr = await registry.getContract(e.name);
+        if (addr && typeof addr === "string" && addr !== ZERO) {
+          addresses[e.key] = addr;
+        }
+      } catch {
+        // ignore per-entry failures
+      }
+    }
+
+    if (Object.keys(addresses).length > 0) {
+      try {
+        // eslint-disable-next-line no-console
+        console.debug("fetchAddressesFromAccessControl: getContract() fast-path", {
+          accessControlAddress,
+          addresses
+        });
+      } catch {
+        // ignore logging failures
+      }
+      return { addresses, others };
+    }
+  } catch {
+    // fallback to generic probing below
+  }
+
   async function tryAddressCall(fnName: string): Promise<string | null> {
     try {
       // Create a contract with a single (dummy) ABI but call by function fragment string

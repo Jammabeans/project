@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { BrowserProvider, Contract } from 'ethers';
 import useContracts from './useContracts';
 import { getChainSettings } from '../config/chainSettings';
@@ -53,7 +53,12 @@ export default function usePoolDetails(poolAddress?: string | null, opts?: Optio
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
-  const provider = opts?.provider ?? ((window as any).ethereum ? new BrowserProvider((window as any).ethereum) : null);
+  // Keep provider stable across renders to avoid effect/refetch loops and UI flicker.
+  const provider = useMemo(() => {
+    if (opts?.provider) return opts.provider;
+    if (!(window as any).ethereum) return null;
+    return new BrowserProvider((window as any).ethereum, 'any');
+  }, [opts?.provider]);
   const pollInterval = opts?.pollIntervalMs ?? null;
   // Read resolved addresses at top-level so React Hooks rules are satisfied
   const { resolvedAddresses } = useContracts(provider ?? null);
@@ -65,6 +70,7 @@ export default function usePoolDetails(poolAddress?: string | null, opts?: Optio
       ?? getChainSettings(31337)?.poolManagerAddress;
     const addrToUse = addr ?? defaultPoolAddress;
     if (!addrToUse) return null;
+    // Keep existing content visible while refetching to reduce flashing.
     setLoading(true);
     setError(null);
     try {
@@ -72,7 +78,7 @@ export default function usePoolDetails(poolAddress?: string | null, opts?: Optio
       const pool = new Contract(addrToUse, POOL_ABI, provider);
 
       // Attempt calls in parallel, but tolerate missing methods via try/catch per call
-      const results: any = { address: addr };
+      const results: any = { address: addrToUse };
 
       // token0
       try {

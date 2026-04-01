@@ -122,21 +122,21 @@ export const CHAIN_SETTINGS: Record<number, ChainSettings> = {
     // manager / pool manager (deployment seed)
     poolManagerAddress: "0x5fbdb2315678afecb367f032d93f642f64180aa3",
     // hooks/master placeholder
-    hooksMasterAddress: "0xeddc3af69788be7e62068620168ad72aa932bfff",
+    hooksMasterAddress: "0x11acb2d969ab436afc00b0d56388783084d1bfff",
     // canonical deployed addresses (provided)
     accessControlAddress: "0xb7f8bc63bbcad18155201308c8f3540b07f84f5e",
     poolLaunchPadAddress: "0xa51c1fc2f0d1a1b8494ed1fe312d7c3a78ed91c0",
-    masterControlAddress: "0xb00767f80628405db3b78502df410a2aeebdbfff",
-    feeCollectorAddress: "0x9a9f2ccfde556a7e9ff0848998aa4a0cfd8863ae",
-    gasBankAddress: "0x68b1d87f95878fe05b998f19b66f4baba5de1aed",
-    degenPoolAddress: "0x3aa5ebb10dc797cac828524e59a333d0a371443c",
-    settingsAddress: "0xa85233c63b9ee964add6f2cffe00fd84eb32338f",
-    shareSplitterAddress: "0x4a679253410272dd5232b3ff7cf5dbb88f295319",
-    bondingAddress: "0x59b670e9fa9d0a427751af201d676719a970857b",
+    masterControlAddress: "0x11acb2d969ab436afc00b0d56388783084d1bfff",
+    feeCollectorAddress: "0x3aa5ebb10dc797cac828524e59a333d0a371443c",
+    gasBankAddress: "0xc6e7df5e7b4f2a278906862b61205850344d4e7d",
+    degenPoolAddress: "0x59b670e9fa9d0a427751af201d676719a970857b",
+    settingsAddress: "0x322813fd9a801c5507c9de605d63cea4f2ce6c44",
+    shareSplitterAddress: "0xa85233c63b9ee964add6f2cffe00fd84eb32338f",
+    bondingAddress: "0x4a679253410272dd5232b3ff7cf5dbb88f295319",
     prizeBoxAddress: "0x7a2088a1bfc9d81c55368ae168c2c02570cb814f",
-    shakerAddress: "0x09635f643e140090a9a8dcd712ed6285858cebef",
-    pointsCommandAddress: "0x809d550fca64d94bd9f66e60752a544199cfac3d",
-    bidManagerAddress: "0x4c5859f0f772848b2d91f1d83e2fe57935348029",
+    shakerAddress: "0x99bba657f2bbc93c02d617f8ba121cb8fc104acf",
+    pointsCommandAddress: "0x0e801d84fa97b50751dbf25036d067dcf18858bf",
+    bidManagerAddress: "0x36c02da8a0983159322a80ffe9f24b1acff8b570",
     // keep the create2Factory value if present
     create2FactoryAddress: "0x7bc06c482dead17c0e297afbc32f6e63d3846650",
     tokens: []

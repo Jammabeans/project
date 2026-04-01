@@ -79,7 +79,7 @@ const PoolOverview: React.FC<{ initialPoolAddress?: string | null }> = ({ initia
         </button>
       </div>
 
-      {loading && <div>Loading...</div>}
+      {loading && !matchedPool && <div>Loading...</div>}
       {error && <div style={{ color: "red", marginBottom: 8 }}>{error}</div>}
 
       {!poolAddress && pools.length > 0 && (

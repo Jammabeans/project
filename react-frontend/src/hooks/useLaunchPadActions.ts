@@ -71,6 +71,22 @@ export default function useLaunchPadActions(providedProvider?: any) {
   }) => {
     const addr = resolveLaunchPadAddress();
     if (!addr) throw new Error('PoolLaunchPad address not configured');
+
+    // Guard against stale/local address mismatches: sending to an EOA succeeds but does nothing.
+    try {
+      const eth: any = (window as any).ethereum;
+      const rp: any = providedProvider ?? (eth ? new BrowserProvider(eth, 'any') : null);
+      const code = rp ? await rp.getCode(addr) : '0x';
+      if (!code || code === '0x') {
+        throw new Error(
+          `No contract code at PoolLaunchPad address ${addr}. Update chain settings / resolver addresses for this Anvil session.`
+        );
+      }
+    } catch (e: any) {
+      if (String(e?.message ?? '').includes('No contract code at PoolLaunchPad address')) throw e;
+      throw new Error(`Failed to validate PoolLaunchPad code at ${addr}: ${e?.message ?? String(e)}`);
+    }
+
     const c = await getContract(addr, POOL_LAUNCHPAD_ABI, true);
     const supply = String(opts.tokenSupply);
 
@@ -150,6 +166,21 @@ export default function useLaunchPadActions(providedProvider?: any) {
   }) => {
     const addr = resolveLaunchPadAddress();
     if (!addr) throw new Error('PoolLaunchPad address not configured');
+
+    try {
+      const eth: any = (window as any).ethereum;
+      const rp: any = providedProvider ?? (eth ? new BrowserProvider(eth, 'any') : null);
+      const code = rp ? await rp.getCode(addr) : '0x';
+      if (!code || code === '0x') {
+        throw new Error(
+          `No contract code at PoolLaunchPad address ${addr}. Update chain settings / resolver addresses for this Anvil session.`
+        );
+      }
+    } catch (e: any) {
+      if (String(e?.message ?? '').includes('No contract code at PoolLaunchPad address')) throw e;
+      throw new Error(`Failed to validate PoolLaunchPad code at ${addr}: ${e?.message ?? String(e)}`);
+    }
+
     const c = await getContract(addr, POOL_LAUNCHPAD_ABI, true);
     const tx = await (c as any).createSuppliedTokenAndInitWithNative(
       opts.existingTokenAddr,
@@ -173,6 +204,21 @@ export default function useLaunchPadActions(providedProvider?: any) {
   }) => {
     const addr = resolveLaunchPadAddress();
     if (!addr) throw new Error('PoolLaunchPad address not configured');
+
+    try {
+      const eth: any = (window as any).ethereum;
+      const rp: any = providedProvider ?? (eth ? new BrowserProvider(eth, 'any') : null);
+      const code = rp ? await rp.getCode(addr) : '0x';
+      if (!code || code === '0x') {
+        throw new Error(
+          `No contract code at PoolLaunchPad address ${addr}. Update chain settings / resolver addresses for this Anvil session.`
+        );
+      }
+    } catch (e: any) {
+      if (String(e?.message ?? '').includes('No contract code at PoolLaunchPad address')) throw e;
+      throw new Error(`Failed to validate PoolLaunchPad code at ${addr}: ${e?.message ?? String(e)}`);
+    }
+
     const c = await getContract(addr, POOL_LAUNCHPAD_ABI, true);
     const supply = String(opts.tokenSupply);
     const tx = await (c as any).createNewTokenAndInitWithToken(
@@ -198,6 +244,21 @@ export default function useLaunchPadActions(providedProvider?: any) {
   }) => {
     const addr = resolveLaunchPadAddress();
     if (!addr) throw new Error('PoolLaunchPad address not configured');
+
+    try {
+      const eth: any = (window as any).ethereum;
+      const rp: any = providedProvider ?? (eth ? new BrowserProvider(eth, 'any') : null);
+      const code = rp ? await rp.getCode(addr) : '0x';
+      if (!code || code === '0x') {
+        throw new Error(
+          `No contract code at PoolLaunchPad address ${addr}. Update chain settings / resolver addresses for this Anvil session.`
+        );
+      }
+    } catch (e: any) {
+      if (String(e?.message ?? '').includes('No contract code at PoolLaunchPad address')) throw e;
+      throw new Error(`Failed to validate PoolLaunchPad code at ${addr}: ${e?.message ?? String(e)}`);
+    }
+
     const c = await getContract(addr, POOL_LAUNCHPAD_ABI, true);
     const tx = await (c as any).initWithSuppliedTokens(
       opts.tokenA,
