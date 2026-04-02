@@ -67,6 +67,10 @@ export interface PoolInfo {
   liquidity: string;
   token0: { id: string; symbol: string };
   token1: { id: string; symbol: string };
+  token0Price?: string | null;
+  token1Price?: string | null;
+  tvlUSD?: string | null;
+  volume24hUSD?: string | null;
 }
 
 interface PoolsState {

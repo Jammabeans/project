@@ -27,13 +27,17 @@ export default function PoolsList(): JSX.Element {
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search by pool address or token symbol"
+          placeholder="Search by token symbol, token address, or pool id"
           style={{ padding: 8, borderRadius: 6, border: '1px solid #222', background: '#071018', color: '#fff', flex: 1 }}
         />
-        <div style={{ color: '#999' }}>{loading ? 'Loading...' : `${filtered.length} pools`}</div>
+        <div style={{ color: '#9fb1c8' }}>{loading ? 'Loading...' : `${filtered.length} pools`}</div>
       </div>
 
       {error && <div style={{ color: 'salmon' }}>Error loading pools: {String(error)}</div>}
+
+      <div style={{ color: '#7f92a9', fontSize: '0.85rem', marginBottom: 10 }}>
+        Sorted by liquidity (snapshot). Click a pool for detailed view.
+      </div>
 
       <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
         {filtered.map((p: any) => (

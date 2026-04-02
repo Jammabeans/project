@@ -9,3 +9,4 @@ export { default as useBonding } from './useBonding';
 export { default as useAdminActions } from './useAdminActions';
 export { default as useChainSettings } from './useChainSettings';
 export { default as useContracts } from './useContracts';
+export { default as useLaunchPadPools } from './useLaunchPadPools';

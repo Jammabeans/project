@@ -1,6 +1,6 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { CHAIN_SETTINGS } from "../config/chainSettings";
-import { usePools, useChainSettings, usePoolDetails, usePoolSwaps } from "../hooks";
+import { usePools, usePoolDetails, useLaunchPadPools } from "../hooks";
 
 const DEFAULT_CHAIN_ID = Number(process.env.REACT_APP_DEFAULT_CHAIN_ID) || 1;
 const ALL_CHAINS = Object.values(CHAIN_SETTINGS);
@@ -11,20 +11,48 @@ const PoolOverview: React.FC<{ initialPoolAddress?: string | null }> = ({ initia
 
   // Snapshot list for quick discovery
   const { pools, loading: snapshotLoading, error: snapshotError, refetch } = usePools({ first: 50, pollIntervalMs: null });
-  const chainSettings = useChainSettings(chainId);
+  const { poolIds, loading: launchpadLoading, refetch: refetchLaunchpad } = useLaunchPadPools({ pollIntervalMs: null });
 
   // Exact on-chain details when a pool address is entered
-  const { data: poolDetails, loading: detailsLoading, error: detailsError, refetch: refetchDetails } =
+  const { data: poolDetails, loading: detailsLoading, error: detailsError, lastUpdatedAt, refetch: refetchDetails } =
     usePoolDetails(poolAddress || null, { pollIntervalMs: null });
 
-  const loading = snapshotLoading || detailsLoading;
+  const loading = snapshotLoading || detailsLoading || launchpadLoading;
   const error = detailsError ?? snapshotError;
 
-  // If we have on-chain details prefer them; otherwise fall back to snapshot match
+  const updatedAgoLabel = useMemo(() => {
+    if (!lastUpdatedAt) return '—';
+    const secs = Math.max(0, Math.floor((Date.now() - lastUpdatedAt) / 1000));
+    return `${secs}s ago`;
+  }, [lastUpdatedAt, loading]);
+
   const _pd: any = poolDetails as any;
-  const matchedPool = poolDetails
-    ? { id: _pd.address, token0: _pd.token0 ?? { symbol: '', address: _pd.token0?.address ?? '' }, token1: _pd.token1 ?? { symbol: '', address: _pd.token1?.address ?? '' }, feeTier: _pd.fee ?? 'N/A', liquidity: _pd.liquidity ?? 'N/A' }
-    : (poolAddress ? pools.find(p => p.id.toLowerCase() === poolAddress.toLowerCase()) : null);
+  const snapshotMatch = poolAddress ? pools.find(p => p.id.toLowerCase() === poolAddress.toLowerCase()) : null;
+
+  // Merge snapshot + on-chain details. Never clobber populated snapshot values with empty on-chain placeholders.
+  const matchedPool = (snapshotMatch || poolDetails)
+    ? {
+        id: _pd?.poolId ?? _pd?.address ?? snapshotMatch?.id ?? poolAddress,
+        token0: {
+          symbol: _pd?.token0?.symbol ?? snapshotMatch?.token0?.symbol ?? '',
+          address: _pd?.token0?.address ?? snapshotMatch?.token0?.id ?? '',
+        },
+        token1: {
+          symbol: _pd?.token1?.symbol ?? snapshotMatch?.token1?.symbol ?? '',
+          address: _pd?.token1?.address ?? snapshotMatch?.token1?.id ?? '',
+        },
+        feeTier: _pd?.fee ?? snapshotMatch?.feeTier ?? 'N/A',
+        liquidity: _pd?.liquidity ?? snapshotMatch?.liquidity ?? 'N/A',
+      }
+    : null;
+
+  const sourceLabel = poolDetails && snapshotMatch
+    ? 'Mixed (on-chain + snapshot)'
+    : poolDetails
+      ? 'On-chain'
+      : snapshotMatch
+        ? 'Snapshot'
+        : '—';
 
   return (
     <div style={{ marginBottom: 24 }}>
@@ -45,12 +73,12 @@ const PoolOverview: React.FC<{ initialPoolAddress?: string | null }> = ({ initia
           </select>
         </label>
         <label>
-          Pool Address:
+          Pool ID (bytes32):
           <input
             type="text"
             value={poolAddress}
             onChange={e => setPoolAddress(e.target.value)}
-            placeholder="0x..."
+            placeholder="0x + 64 hex chars"
             style={{ marginLeft: 8, width: 260 }}
           />
         </label>
@@ -59,9 +87,10 @@ const PoolOverview: React.FC<{ initialPoolAddress?: string | null }> = ({ initia
             if (poolAddress) {
               refetchDetails();
             } else {
-              refetch();
-            }
-          }}
+                refetch();
+                refetchLaunchpad();
+              }
+            }}
           disabled={loading}
           style={{
             marginLeft: 16,
@@ -77,6 +106,10 @@ const PoolOverview: React.FC<{ initialPoolAddress?: string | null }> = ({ initia
         >
           {loading ? "Loading..." : poolAddress ? "Fetch Pool" : "Refresh Pools"}
         </button>
+      </div>
+
+      <div style={{ color: '#8aa', fontSize: '0.85rem', marginTop: -6, marginBottom: 8 }}>
+        Last updated: {updatedAgoLabel} · Source: {sourceLabel}
       </div>
 
       {loading && !matchedPool && <div>Loading...</div>}
@@ -95,6 +128,24 @@ const PoolOverview: React.FC<{ initialPoolAddress?: string | null }> = ({ initia
         </div>
       )}
 
+      {!poolAddress && poolIds.length > 0 && (
+        <div style={{ marginTop: 8 }}>
+          <h3>Launchpad Pools (on-chain)</h3>
+          <ul style={{ listStyle: 'none', padding: 0 }}>
+            {poolIds.slice(0, 8).map((id: string) => (
+              <li key={id} style={{ marginBottom: 6 }}>
+                <button
+                  onClick={() => setPoolAddress(String(id))}
+                  style={{ background: '#1a1d22', color: '#9ad', border: '1px solid #333', borderRadius: 6, padding: '0.3em 0.5em' }}
+                >
+                  {String(id)}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       {poolAddress && !matchedPool && !loading && (
         <div style={{ color: "#aaa", marginTop: 8 }}>
           No pool data found. Try "Fetch Pool" to perform an on-chain read.
@@ -104,7 +155,7 @@ const PoolOverview: React.FC<{ initialPoolAddress?: string | null }> = ({ initia
       {matchedPool && (
         <div style={{ marginTop: 12 }}>
           <p>
-            Pool address: <span style={{ color: "#888" }}>{matchedPool.id}</span>
+            Pool id: <span style={{ color: "#888" }}>{matchedPool.id}</span>
           </p>
 
           {/* Render PoolHeader and PoolStats */}
@@ -116,7 +167,7 @@ const PoolOverview: React.FC<{ initialPoolAddress?: string | null }> = ({ initia
             {React.createElement(require('./PoolStatsCard').default, {
               tvl: matchedPool.liquidity,
               feeTier: matchedPool.feeTier,
-              volume24h: '—',
+              volume24h: snapshotMatch ? snapshotMatch.liquidity : '—',
               hookCount: '—',
             })}
             <div style={{ flex: 1 }}>
@@ -149,8 +200,10 @@ const PoolOverview: React.FC<{ initialPoolAddress?: string | null }> = ({ initia
           {/* eslint-disable-next-line @typescript-eslint/no-var-requires */}
           {React.createElement(require('./TradeWidget').default, {
             poolId: matchedPool.id,
-            token0Label: ((matchedPool.token0 as any)?.symbol) ?? 'Token0',
-            token1Label: ((matchedPool.token1 as any)?.symbol) ?? 'Token1',
+            token0Label: ((matchedPool.token0 as any)?.symbol) || ((matchedPool.token0 as any)?.address) || 'Token0',
+            token1Label: ((matchedPool.token1 as any)?.symbol) || ((matchedPool.token1 as any)?.address) || 'Token1',
+            token0Address: ((matchedPool.token0 as any)?.address) || null,
+            token1Address: ((matchedPool.token1 as any)?.address) || null,
           })}
         </div>
       )}

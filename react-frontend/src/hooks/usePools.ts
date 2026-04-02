@@ -32,6 +32,10 @@ export function usePools(opts?: UsePoolsOptions) {
           id
           feeTier
           liquidity
+          token0Price
+          token1Price
+          totalValueLockedUSD
+          volumeUSD
           token0 { id symbol }
           token1 { id symbol }
         }
@@ -50,6 +54,10 @@ export function usePools(opts?: UsePoolsOptions) {
           liquidity: String(r.liquidity ?? '0'),
           token0: { id: r.token0?.id ?? '', symbol: r.token0?.symbol ?? '' },
           token1: { id: r.token1?.id ?? '', symbol: r.token1?.symbol ?? '' },
+          token0Price: r.token0Price != null ? String(r.token0Price) : null,
+          token1Price: r.token1Price != null ? String(r.token1Price) : null,
+          tvlUSD: r.totalValueLockedUSD != null ? String(r.totalValueLockedUSD) : null,
+          volume24hUSD: r.volumeUSD != null ? String(r.volumeUSD) : null,
         }));
         setPools(mapped);
       }

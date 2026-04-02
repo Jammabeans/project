@@ -21,6 +21,8 @@ import { getChainSettings } from '../config/chainSettings';
 
 type PoolDetails = {
   address: string;
+  poolId?: string;
+  mode?: 'address' | 'poolId';
   token0?: { address: string; symbol?: string; decimals?: number };
   token1?: { address: string; symbol?: string; decimals?: number };
   fee?: number | string;
@@ -52,6 +54,7 @@ export default function usePoolDetails(poolAddress?: string | null, opts?: Optio
   const [data, setData] = useState<PoolDetails | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<number | null>(null);
 
   // Keep provider stable across renders to avoid effect/refetch loops and UI flicker.
   const provider = useMemo(() => {
@@ -75,6 +78,22 @@ export default function usePoolDetails(poolAddress?: string | null, opts?: Optio
     setError(null);
     try {
       if (!provider) throw new Error('No provider available (connect wallet or pass a provider).');
+      // In this app's current v4 flow, the input is often PoolId (bytes32) rather than
+      // an EVM pool contract address. If bytes32 is provided, return a stable minimal
+      // object instead of attempting address-based calls that will revert/noise.
+      const isBytes32Id = /^0x[0-9a-fA-F]{64}$/.test(String(addrToUse));
+      if (isBytes32Id) {
+        const minimal: PoolDetails = {
+          address: String(addrToUse),
+          poolId: String(addrToUse),
+          mode: 'poolId',
+          raw: null,
+        };
+        setData(minimal);
+        setLastUpdatedAt(Date.now());
+        return minimal;
+      }
+
       const pool = new Contract(addrToUse, POOL_ABI, provider);
 
       // Attempt calls in parallel, but tolerate missing methods via try/catch per call
@@ -146,6 +165,7 @@ export default function usePoolDetails(poolAddress?: string | null, opts?: Optio
 
       results.raw = results.raw ?? null;
       setData(results as PoolDetails);
+      setLastUpdatedAt(Date.now());
       return results as PoolDetails;
     } catch (err: any) {
       setError(err?.message ?? String(err));
@@ -176,6 +196,7 @@ export default function usePoolDetails(poolAddress?: string | null, opts?: Optio
     data,
     loading,
     error,
+    lastUpdatedAt,
     refetch,
   } as const;
 }
